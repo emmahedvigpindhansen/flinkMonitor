@@ -1,5 +1,6 @@
 package ch.ethz.infsec;
 
+import ch.ethz.infsec.formula.JavaGenFormula;
 import ch.ethz.infsec.formula.visitor.Init0;
 import ch.ethz.infsec.monitor.*;
 import ch.ethz.infsec.monitor.visitor.MformulaVisitorFlink;
@@ -16,6 +17,7 @@ import org.apache.flink.api.common.serialization.SimpleStringEncoder;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.utils.ParameterTool;
 //import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
+import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.LocalStreamEnvironment;
@@ -71,7 +73,7 @@ public class Main {
         String jobName = p.get("job");
 
 
-
+        // EH : does this read multiple policies or just 1??
         Either<String, GenFormula<VariableID>> a = Policy.read(Source.fromFile(formulaFile, Codec.fallbackSystemCodec()).mkString());
         if(a.isLeft()){
             throw new ExceptionInInitializerError();
@@ -84,18 +86,22 @@ public class Main {
             e.enableCheckpointing(checkpointInterval, CheckpointingMode.EXACTLY_ONCE);
             RestartStrategies.RestartStrategyConfiguration restartStrategy = RestartStrategies.fixedDelayRestart(restarts, Time.of(1, TimeUnit.SECONDS));
             e.setRestartStrategy(restartStrategy);
+            e.setParallelism(numberProcessors);
+            e.setMaxParallelism(numberProcessors);
 
+            // EH : should this work with higher parallelism?
             DataStream<String> text = e.socketTextStream(inputSourceString[0], inputPortNumber, "\n")
-                    .setParallelism(1)
+                   .setParallelism(1)
                     .setMaxParallelism(1)
                     .name("Socket source")
                     .uid("socket-source");
 
+            // EH : should this work with higher parallelism?
             DataStream<Fact> facts = text.flatMap(new ParsingFunction(new MonpolyTraceParser()))
-                    .setParallelism(1)
-                    .setMaxParallelism(1)
-                    .name("parser")
-                    .uid("parser");
+                                         .setParallelism(1)
+                                         .setMaxParallelism(1)
+                                        .name("parser")
+                                        .uid("parser");
             Set<Pred<VariableID>> atomSet = formula.atoms();
             Iterator<Pred<VariableID>> iter = atomSet.iterator();
 
@@ -107,6 +113,7 @@ public class Main {
 
             hashmap.put(TERMINATOR_TAG, new OutputTag<Fact>(TERMINATOR_TAG){});
 
+            // EH : what is happening here?
             SingleOutputStreamOperator<Fact> mainDataStream = facts
                     .process(new ProcessFunction<Fact, Fact>() {
 
@@ -128,12 +135,14 @@ public class Main {
                             }
                         }
                     });
+
             Mformula mformula = (convert(formula)).accept(new Init0(formula.freeVariablesInOrder()));
             DataStream<PipelineEvent> sink = mformula.accept(new MformulaVisitorFlink(hashmap, mainDataStream));
 
             DataStream<String> strOutput = sink.map(PipelineEvent::toString);
-            strOutput.addSink(StreamingFileSink.forRowFormat(new Path(outputFile),new SimpleStringEncoder<String>("UTF-8")).build()).setParallelism(1);
+            // strOutput.addSink(StreamingFileSink.forRowFormat(new Path(outputFile),new SimpleStringEncoder<String>("UTF-8")).build()).setParallelism(1);
 
+            strOutput.writeAsText(outputFile, FileSystem.WriteMode.OVERWRITE);
 
             e.execute(jobName);
         }

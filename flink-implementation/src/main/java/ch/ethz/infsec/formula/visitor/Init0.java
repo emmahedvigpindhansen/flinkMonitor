@@ -31,12 +31,12 @@ public class Init0 implements FormulaVisitor<Mformula> {
                 ArrayList<Object> freeVarsInOrder2 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
                 boolean isSubset = freeVarsInOrder1.containsAll(freeVarsInOrder2);
                 if(isSubset && safe_formula(((JavaOr<VariableID>) f.arg()).arg2())){
-                    return new MAnd((((JavaOr<VariableID>)f.arg()).arg1()).accept(new Init0(f.freeVariablesInOrder())),
-                            false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(f.freeVariablesInOrder())));
+                    return new MAnd((((JavaOr<VariableID>)f.arg()).arg1()).accept(new Init0(this.fvio)),
+                            false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)));
                 }else{
                     if(((JavaOr<VariableID>)f.arg()).arg2() instanceof JavaNot){
-                        return new MAnd((((JavaOr<VariableID>)f.arg()).arg1()).accept(new Init0(f.freeVariablesInOrder())),
-                                false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(f.freeVariablesInOrder())));
+                        return new MAnd((((JavaOr<VariableID>)f.arg()).arg1()).accept(new Init0(this.fvio)),
+                                false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)));
                     }else{
                         return null;
                     }
@@ -55,14 +55,13 @@ public class Init0 implements FormulaVisitor<Mformula> {
         JavaGenFormula<VariableID> arg1 = f.arg1();
         JavaGenFormula<VariableID> arg2 = f.arg2();
         if(safe_formula(arg2)){
-            return new MAnd(arg1.accept(new Init0(f.freeVariablesInOrder())), true, arg2.accept(new Init0(f.freeVariablesInOrder())));
+            return new MAnd(arg1.accept(new Init0(this.fvio)), true, arg2.accept(new Init0(this.fvio)));
         }else{
             ArrayList<Object> freeVarsInOrder1 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
             ArrayList<Object> freeVarsInOrder2 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
             boolean isSubset = freeVarsInOrder1.containsAll(freeVarsInOrder2);
             if(arg2 instanceof JavaNot && isSubset){
-
-                return new MAnd(arg1.accept(new Init0(f.freeVariablesInOrder())), false, arg2.accept(new Init0(f.freeVariablesInOrder())));
+                return new MAnd(arg1.accept(new Init0(this.fvio)), false, arg2.accept(new Init0(this.fvio)));
             }else{
                 return null;
             }
@@ -93,16 +92,16 @@ public class Init0 implements FormulaVisitor<Mformula> {
     }
 
     public Mformula visit(JavaNext<VariableID> f) {
-        return new MNext(f.interval(), (f.arg()).accept(new Init0(f.freeVariablesInOrder())), true, new LinkedList<>());
+        return new MNext(f.interval(), (f.arg()).accept(new Init0(this.fvio)), true, new LinkedList<>());
     }
 
     public Mformula visit(JavaOr<VariableID> f) {
-        return new MOr((f.arg1()).accept(new Init0(f.arg1().freeVariablesInOrder())),
-                (f.arg2()).accept(new Init0(f.arg2().freeVariablesInOrder())));
+        return new MOr((f.arg1()).accept(new Init0(this.fvio)),
+                (f.arg2()).accept(new Init0(this.fvio)));
     }
 
     public Mformula visit(JavaPrev<VariableID> f) {
-        return new MPrev(f.interval(), (f.arg()).accept(new Init0(f.freeVariablesInOrder())), true, new LinkedList<>());
+        return new MPrev(f.interval(), (f.arg()).accept(new Init0(this.fvio)), true, new LinkedList<>());
 
     }
 
@@ -110,15 +109,15 @@ public class Init0 implements FormulaVisitor<Mformula> {
 
         if(safe_formula(f.arg1())){
             return new MSince(true,
-                    (f.arg1()).accept(new Init0(f.freeVariablesInOrder())),
+                    (f.arg1()).accept(new Init0(this.fvio)),
                     f.interval(),
-                    (f.arg2()).accept(new Init0(f.freeVariablesInOrder())));
+                    (f.arg2()).accept(new Init0(this.fvio)));
         }else{
             if((f.arg1()) instanceof JavaNot){
                 return new MSince(false,
-                        (f.arg1()).accept(new Init0(f.freeVariablesInOrder())),
+                        (f.arg1()).accept(new Init0(this.fvio)),
                         f.interval(),
-                        (f.arg2()).accept(new Init0(f.freeVariablesInOrder())));
+                        (f.arg2()).accept(new Init0(this.fvio)));
             }else{
                 return null;
             }
@@ -130,15 +129,15 @@ public class Init0 implements FormulaVisitor<Mformula> {
 
         if(safe_formula(f.arg1())){
             return new MUntil(true,
-                    (f.arg1()).accept(new Init0(f.freeVariablesInOrder())),
+                    (f.arg1()).accept(new Init0(this.fvio)),
                     f.interval(),
-                    (f.arg2()).accept(new Init0(f.freeVariablesInOrder())));
+                    (f.arg2()).accept(new Init0(this.fvio)));
         }else{
             if((f.arg1()) instanceof JavaNot){
                 return new MUntil(false,
-                        (f.arg1()).accept(new Init0(f.freeVariablesInOrder())),
+                        (f.arg1()).accept(new Init0(this.fvio)),
                         f.interval(),
-                        (f.arg2()).accept(new Init0(f.freeVariablesInOrder())));
+                        (f.arg2()).accept(new Init0(this.fvio)));
             }else{
                 return null;
             }
@@ -148,12 +147,12 @@ public class Init0 implements FormulaVisitor<Mformula> {
 
     @Override
     public Mformula visit(JavaOnce<VariableID> f) {
-        return new MOnce(f.interval(), (f.arg()).accept(new Init0(f.freeVariablesInOrder())));
+        return new MOnce(f.interval(), (f.arg()).accept(new Init0(this.fvio)));
     }
 
     @Override
     public Mformula visit(JavaEventually<VariableID> f) {
-        return new MEventually(f.interval(), (f.arg()).accept(new Init0(f.freeVariablesInOrder())));
+        return new MEventually(f.interval(), (f.arg()).accept(new Init0(this.fvio)));
     }
 
     public static boolean safe_formula(JavaGenFormula<VariableID> form){
