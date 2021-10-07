@@ -1,0 +1,6 @@
+.stack-work/
+monitortesting.cabal
+*~
+monitortesting-exe
+AllState.log
+Decider.log
