@@ -9,9 +9,10 @@ public class PipelineEvent implements Serializable {
     private final long timepoint;
     private final boolean isTerminator;
     private final Assignment assignment;
+    public Long key = 1L;
 
 
-    private PipelineEvent(long timestamp, long timepoint, boolean isTerminator, Assignment assignment) {
+    public PipelineEvent(long timestamp, long timepoint, boolean isTerminator, Assignment assignment) {
         assert(!isTerminator || assignment==null);
         assert(isTerminator || assignment!=null);
 
