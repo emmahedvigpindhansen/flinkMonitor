@@ -26,43 +26,29 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
 
     HashMap<String, OutputTag<Fact>> hmap;
     SingleOutputStreamOperator<Fact> mainDataStream;
+    DataStream<PipelineEvent> terminators;
 
     public MformulaVisitorFlink(HashMap<String, OutputTag<Fact>> hmap, SingleOutputStreamOperator<Fact> mainDataStream){
         this.hmap = hmap;
         this.mainDataStream = mainDataStream;
+        terminators = this.mainDataStream.getSideOutput(this.hmap.get("0Terminator")).map(new MapFunction<Fact, PipelineEvent>() {
+            @Override
+            public PipelineEvent map(Fact fact) throws Exception {
+                return PipelineEvent.terminator(fact.getTimestamp(),fact.getTimepoint());
+            }
+        });
     }
 
     public DataStream<PipelineEvent> visit(MPred pred) {
-        System.out.println("visit MPred");
         OutputTag<Fact> factStream = this.hmap.get(pred.getPredName());
-        return this.mainDataStream.getSideOutput(factStream).flatMap(pred).setParallelism(1);
-        // return this.mainDataStream.getSideOutput(factStream).flatMap(pred).setParallelism(Main.numberProcessors);
+        // return this.mainDataStream.getSideOutput(factStream).flatMap(pred).setParallelism(1);
+        return this.mainDataStream.getSideOutput(factStream).flatMap(pred).setParallelism(Main.numberProcessors);
     }
 
     public DataStream<PipelineEvent> visit(MAnd f) {
         DataStream<PipelineEvent> input1 = f.op1.accept(this);
         DataStream<PipelineEvent> input2 = f.op2.accept(this);
         ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1.connect(input2);
-        /*DataStream<String> strOutput1 = input1.map(PipelineEvent::toString);
-        strOutput1.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/bla_1", FileSystem.WriteMode.OVERWRITE);
-        DataStream<String> strOutput2 = input2.map(PipelineEvent::toString);
-        strOutput2.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/bla_2", FileSystem.WriteMode.OVERWRITE);
-        DataStream<String> res1 = connectedStreams.map(new CoMapFunction<PipelineEvent, PipelineEvent, String>() {
-
-            @Override
-            public String map1(PipelineEvent value) {
-                return value.toString();
-            }
-
-            @Override
-            public String map2(PipelineEvent value) {
-                return value.toString();
-            }
-        });*/
-        //DataStream<PipelineEvent> res = connectedStreams.flatMap(f);
-        //DataStream<String> res1 = res.map(PipelineEvent::toString);
-        //res1.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_and", FileSystem.WriteMode.OVERWRITE);
-
         return connectedStreams.flatMap(f).setParallelism(Main.numberProcessors);
     }
 
@@ -110,13 +96,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         System.out.println("visit MOnce");
         DataStream<PipelineEvent> input = f.formula.accept(this);
 
-        // split stream into terminators and events
-        DataStream<PipelineEvent> terminators = input.filter(new FilterFunction<PipelineEvent>() {
-            @Override
-            public boolean filter(PipelineEvent event) throws Exception {
-                return (!event.isPresent());
-            }
-        });
+        // remove terminators from stream
         DataStream<PipelineEvent> events = input.filter(new FilterFunction<PipelineEvent>() {
             @Override
             public boolean filter(PipelineEvent event) throws Exception {
@@ -138,7 +118,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         MapStateDescriptor<Void, PipelineEvent> bcStateDescriptor =
                 new MapStateDescriptor<>(
                         "terminators", Types.VOID, Types.GENERIC(PipelineEvent.class));
-        BroadcastStream<PipelineEvent> bcedTerminators = terminators.broadcast(bcStateDescriptor);
+        BroadcastStream<PipelineEvent> bcedTerminators = this.terminators.broadcast(bcStateDescriptor);
         DataStream<PipelineEvent> result = eventsKeyed
                 .connect(bcedTerminators)
                 .process(new MOnceEvaluator());

@@ -24,7 +24,7 @@ public class MOnceEvaluator extends KeyedBroadcastProcessFunction<
         prevActionState = getRuntimeContext().getState(
                 new ValueStateDescriptor<>("lastAction", PipelineEvent.class));
         patternDesc =
-                new MapStateDescriptor<>("patterns", Types.VOID, Types.GENERIC(PipelineEvent.class));
+               new MapStateDescriptor<>("patterns", Types.VOID, Types.GENERIC(PipelineEvent.class));
     }
 
     /**
@@ -38,13 +38,13 @@ public class MOnceEvaluator extends KeyedBroadcastProcessFunction<
             ReadOnlyContext ctx,
             Collector<PipelineEvent> out) throws Exception {
         // get current terminator from broadcast state
-        /*PipelineEvent terminator = ctx
+        /*String terminator = ctx
                 .getBroadcastState(this.patternDesc)
                 // access MapState with null as VOID default value
                 .get(null);*/
-        /*// get previous action of current user from keyed state
-        String prevAction = prevActionState.value();
-        if (pattern != null && prevAction != null) {
+        // get previous action of current user from keyed state
+        PipelineEvent prevAction = prevActionState.value();
+        /*if (pattern != null && prevAction != null) {
             // user had an action before, check if pattern matches
             if (pattern.firstAction.equals(prevAction) &&
                     pattern.secondAction.equals(action.action)) {
@@ -71,6 +71,8 @@ public class MOnceEvaluator extends KeyedBroadcastProcessFunction<
         // BroadcastState<Void, PipelineEvent> bcState = ctx.getBroadcastState(patternDesc);
         // storing in MapState with null as VOID default value
         // bcState.put(null, terminator);
+        // patternDesc.update(terminator);
+        out.collect(terminator);
     }
 
 }
