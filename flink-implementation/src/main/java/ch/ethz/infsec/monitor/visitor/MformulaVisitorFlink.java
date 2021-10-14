@@ -121,7 +121,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         BroadcastStream<PipelineEvent> bcedTerminators = this.terminators.broadcast(bcStateDescriptor);
         DataStream<PipelineEvent> result = eventsKeyed
                 .connect(bcedTerminators)
-                .process(new MOnceEvaluator());
+                .process(new MOnceEvaluator(f)); // just give interval (f.interval) directly
 
         result.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_once", FileSystem.WriteMode.OVERWRITE);
 
