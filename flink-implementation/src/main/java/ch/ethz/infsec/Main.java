@@ -13,6 +13,8 @@ import ch.ethz.infsec.policy.GenFormula;
 import ch.ethz.infsec.policy.Policy;
 import ch.ethz.infsec.policy.*;
 import ch.ethz.infsec.trace.parser.MonpolyTraceParser;
+import org.apache.flink.api.common.functions.FilterFunction;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.serialization.SimpleStringEncoder;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.utils.ParameterTool;
@@ -89,14 +91,12 @@ public class Main {
             e.setParallelism(numberProcessors);
             e.setMaxParallelism(numberProcessors);
 
-            // EH : should this work with higher parallelism?
             DataStream<String> text = e.socketTextStream(inputSourceString[0], inputPortNumber, "\n")
                    .setParallelism(1)
                     .setMaxParallelism(1)
                     .name("Socket source")
                     .uid("socket-source");
 
-            // EH : should this work with higher parallelism?
             DataStream<Fact> facts = text.flatMap(new ParsingFunction(new MonpolyTraceParser()))
                                          .setParallelism(1)
                                          .setMaxParallelism(1)
@@ -113,7 +113,6 @@ public class Main {
 
             hashmap.put(TERMINATOR_TAG, new OutputTag<Fact>(TERMINATOR_TAG){});
 
-            // EH : what is happening here?
             SingleOutputStreamOperator<Fact> mainDataStream = facts
                     .process(new ProcessFunction<Fact, Fact>() {
 
@@ -122,7 +121,6 @@ public class Main {
                                 Fact fact,
                                 Context ctx,
                                 Collector<Fact> out) throws Exception {
-
 
                             if(fact.isTerminator()){
                                 for (String str: hashmap.keySet()){
@@ -134,7 +132,7 @@ public class Main {
                                 }
                             }
                         }
-                    });
+                    }).setParallelism(1);
 
             Mformula mformula = (convert(formula)).accept(new Init0(formula.freeVariablesInOrder()));
             DataStream<PipelineEvent> sink = mformula.accept(new MformulaVisitorFlink(hashmap, mainDataStream));
