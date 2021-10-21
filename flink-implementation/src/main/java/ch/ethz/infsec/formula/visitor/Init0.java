@@ -1,11 +1,16 @@
 package ch.ethz.infsec.formula.visitor;
 import ch.ethz.infsec.policy.*;
+import org.apache.flink.api.common.functions.FlatMapFunction;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
 import java.util.*;
+import java.util.stream.Collectors;
+
 import ch.ethz.infsec.formula.*;
 import ch.ethz.infsec.monitor.*;
 import ch.ethz.infsec.util.*;
+
+import scala.collection.JavaConversions;
 
 
 public class Init0 implements FormulaVisitor<Mformula> {
@@ -25,6 +30,8 @@ public class Init0 implements FormulaVisitor<Mformula> {
 
 
     public Mformula visit(JavaNot<VariableID> f) {
+        List<VariableID> keys = JavaConversions.seqAsJavaList(f.arg().freeVariablesInOrder());
+        // check that this is the right way to handle keys in Not case
         if(f.arg() instanceof JavaOr){
             if(((JavaOr<VariableID>) f.arg()).arg1() instanceof JavaNot){
                 ArrayList<Object> freeVarsInOrder1 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
@@ -32,11 +39,11 @@ public class Init0 implements FormulaVisitor<Mformula> {
                 boolean isSubset = freeVarsInOrder1.containsAll(freeVarsInOrder2);
                 if(isSubset && safe_formula(((JavaOr<VariableID>) f.arg()).arg2())){
                     return new MAnd((((JavaOr<VariableID>)f.arg()).arg1()).accept(new Init0(this.fvio)),
-                            false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)));
+                            false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)), keys);
                 }else{
                     if(((JavaOr<VariableID>)f.arg()).arg2() instanceof JavaNot){
                         return new MAnd((((JavaOr<VariableID>)f.arg()).arg1()).accept(new Init0(this.fvio)),
-                                false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)));
+                                false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)), keys);
                     }else{
                         return null;
                     }
@@ -54,14 +61,19 @@ public class Init0 implements FormulaVisitor<Mformula> {
     public Mformula visit(JavaAnd<VariableID> f) {
         JavaGenFormula<VariableID> arg1 = f.arg1();
         JavaGenFormula<VariableID> arg2 = f.arg2();
+        // get common free vars to use in keyed stream
+        List<VariableID> keys = JavaConversions.seqAsJavaList(f.arg1().freeVariablesInOrder());
+        List<VariableID> keys2 = JavaConversions.seqAsJavaList(f.arg2().freeVariablesInOrder());
+        List<VariableID> commonKeys = keys.stream().filter(keys2::contains).collect(Collectors.toList());
+
         if(safe_formula(arg2)){
-            return new MAnd(arg1.accept(new Init0(this.fvio)), true, arg2.accept(new Init0(this.fvio)));
+            return new MAnd(arg1.accept(new Init0(this.fvio)), true, arg2.accept(new Init0(this.fvio)), commonKeys);
         }else{
             ArrayList<Object> freeVarsInOrder1 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
             ArrayList<Object> freeVarsInOrder2 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
             boolean isSubset = freeVarsInOrder1.containsAll(freeVarsInOrder2);
             if(arg2 instanceof JavaNot && isSubset){
-                return new MAnd(arg1.accept(new Init0(this.fvio)), false, arg2.accept(new Init0(this.fvio)));
+                return new MAnd(arg1.accept(new Init0(this.fvio)), false, arg2.accept(new Init0(this.fvio)), commonKeys);
             }else{
                 return null;
             }

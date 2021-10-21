@@ -148,6 +148,7 @@ case class And[V](arg1: GenFormula[V], arg2: GenFormula[V]) extends GenFormula[V
   override lazy val atomsInOrder: Seq[Pred[V]] = arg1.atomsInOrder ++ arg2.atomsInOrder
   override lazy val freeVariables: Set[V] = arg1.freeVariables ++ arg2.freeVariables
   override lazy val freeVariablesInOrder: Seq[V] = arg1.freeVariablesInOrder ++ arg2.freeVariablesInOrder
+  lazy val commonKeys: Set[V] = arg1.freeVariables intersect arg2.freeVariables
   override def map[W](mapper: VariableMapper[V, W]): And[W] = And(arg1.map(mapper), arg2.map(mapper))
   override def check: List[String] = arg1.check ++ arg2.check
   override def toString: String = s"($arg1) AND ($arg2)"

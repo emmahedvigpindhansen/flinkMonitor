@@ -73,6 +73,11 @@ under the License.
             <artifactId>trace-formats</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>ch.ethz.infsec</groupId>
+            <artifactId>flink-monitor</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Scala dependency -->
         <dependency>
