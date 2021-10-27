@@ -3,7 +3,7 @@ package ch.ethz.infsec.slicer
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment
 import org.apache.flink.util.MathUtils
 
-import scala.collection.mutable
+import scala.collection.{JavaConversions, mutable}
 
 /**
   * ColissionlessKeyGenerator generates custom keys that
@@ -46,7 +46,7 @@ class ColissionlessKeyGenerator(val partitions: Int,
 
 object ColissionlessKeyGenerator{
 
-  def getMapping(numKeys:Int,parallelism:Int,numPartitions:Int):PartialFunction[Int,Int] = {
+  def getMapping(numKeys:Int,parallelism:Int,numPartitions:Int):mutable.HashMap[Int,Int] = {
     val dp =  KeyGroupRangeAssignment.computeDefaultMaxParallelism(parallelism)
     val keyGenerator = new ColissionlessKeyGenerator(numPartitions, dp)
     val map = mutable.HashMap[Int,Int]()
@@ -54,7 +54,7 @@ object ColissionlessKeyGenerator{
     return map
   }
 
-  def getMapping(numKeys:Int):PartialFunction[Int,Int] = {
+  def getMapping(numKeys:Int):mutable.HashMap[Int,Int] = {
     getMapping(numKeys,numKeys,numKeys)
   }
 }
