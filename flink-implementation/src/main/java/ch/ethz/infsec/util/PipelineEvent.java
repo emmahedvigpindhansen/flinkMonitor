@@ -1,7 +1,12 @@
 package ch.ethz.infsec.util;
 
 
+import ch.ethz.infsec.policy.VariableID;
+
 import java.io.Serializable;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.List;
 
 public class PipelineEvent implements Serializable {
 
@@ -9,7 +14,8 @@ public class PipelineEvent implements Serializable {
     private final long timepoint;
     private final boolean isTerminator;
     private final Assignment assignment;
-    public Long key = 1L;
+    public List<VariableID> key;
+    public int terminatorKey;
 
 
     public PipelineEvent(long timestamp, long timepoint, boolean isTerminator, Assignment assignment) {

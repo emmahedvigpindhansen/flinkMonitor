@@ -15,11 +15,14 @@ import org.apache.flink.util.OutputTag;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import ch.ethz.infsec.monitor.*;
 import ch.ethz.infsec.util.*;
 import ch.ethz.infsec.slicer.*;
 import scala.PartialFunction;
+import scala.collection.JavaConverters;
+
 
 public class MformulaVisitorFlink implements MformulaVisitor<DataStream<PipelineEvent>> {
 
@@ -43,12 +46,58 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1.connect(input2);
 
         // get common keys
-        List<VariableID> keys = f.keys;
+        List<VariableID> commonKeys = f.keys;
 
         // flatmap to create stream which has key "keys" and duplicate terminators
         // ...
 
-        ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreamsKeyed = input1
+        int numKeys = 3;
+        scala.collection.mutable.HashMap<Object, Object> map = ColissionlessKeyGenerator.getMapping(numKeys);
+        Map<Object, Object> mapping = JavaConverters.mapAsJavaMap(map);
+        System.out.println(mapping);
+
+        // duplicate terminators wrt. parallelism
+        DataStream<PipelineEvent> input1duplicate = input1.flatMap(new FlatMapFunction<PipelineEvent, PipelineEvent>() {
+            @Override
+            public void flatMap(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
+                if (!event.isPresent()) {
+                    event.terminatorKey = (int) mapping.get(0);
+                    PipelineEvent event2 = new PipelineEvent(event.getTimestamp(), event.getTimepoint(), true, event.get());
+                    event2.terminatorKey = (int) mapping.get(1);
+                    PipelineEvent event3 = new PipelineEvent(event.getTimestamp(), event.getTimepoint(), true, event.get());
+                    event3.terminatorKey = (int) mapping.get(2);
+                    out.collect(event); out.collect(event2); out.collect(event3);
+                } else {
+                    event.terminatorKey = (int) mapping.get(0);
+                    out.collect(event);
+                }
+            }
+        }).setParallelism(1);
+        input1duplicate.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_and_input1duplicate", FileSystem.WriteMode.OVERWRITE);
+
+        /*DataStream<PipelineEvent> input2duplicate = input2.flatMap(new FlatMapFunction<PipelineEvent, PipelineEvent>() {
+            @Override
+            public void flatMap(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
+                if (!event.isPresent()) {
+                    out.collect(event); out.collect(event); out.collect(event);
+                } else {
+                    event.key = commonKeys;
+                    out.collect(event);
+                }
+            }
+        });*/
+
+        KeyedStream<PipelineEvent, Integer> input1Keyed = input1duplicate
+                .keyBy(new KeySelector<PipelineEvent, Integer>() {
+                    @Override
+                    public Integer getKey(PipelineEvent event) throws Exception {
+                        return event.terminatorKey;
+                    }
+                });
+        input1Keyed.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_and", FileSystem.WriteMode.OVERWRITE);
+        // flatmap to give each event the common keys to key by
+
+        /*ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreamsKeyed = input1
                 .keyBy(new KeySelector<PipelineEvent, List<VariableID>>() {
                     @Override
                     public List<VariableID> getKey(PipelineEvent event) throws Exception {
@@ -60,7 +109,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                     public List<VariableID> getKey(PipelineEvent event) throws Exception {
                         return event.key;
                     }
-                }));
+                }));*/
 
         return connectedStreams.flatMap(f).setParallelism(Main.numberProcessors);
     }
