@@ -10,6 +10,10 @@ import org.apache.flink.util.Collector;
 import scala.collection.Seq;
 import scala.collection.*;
 import java.util.*;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import static ch.ethz.infsec.term.JavaTerm.convert;
 import ch.ethz.infsec.util.*;
 import ch.ethz.infsec.monitor.visitor.*;
@@ -18,6 +22,7 @@ public final class MPred implements Mformula, FlatMapFunction<Fact, PipelineEven
     String predName;
     ArrayList<JavaTerm<VariableID>> args;
     List<VariableID> freeVariablesInOrder;
+    Integer numberProcessors;
 
     public MPred(String predName, Seq<Term<VariableID>> args, List<VariableID> fvio){
         List<Term<VariableID>> argsScala = new ArrayList(JavaConverters.seqAsJavaList(args));
@@ -26,21 +31,36 @@ public final class MPred implements Mformula, FlatMapFunction<Fact, PipelineEven
             argsJava.add(convert(variableIDTerm));
         }
         this.predName = predName;
-        this.freeVariablesInOrder = fvio;
+        this.freeVariablesInOrder = fvio.stream().distinct().collect(Collectors.toList());
         this.args = argsJava;
     }
 
     public String getPredName(){
-        return predName;
+      return predName;
     }
 
+    @Override
+    public void setNumberProcessors(int numberProcessors) {
+        this.numberProcessors = numberProcessors;
+    }
+
+    @Override
+    public Integer getNumberProcessors() {
+        return this.numberProcessors;
+    }
 
     public void flatMap(Fact fact, Collector<PipelineEvent> out) throws Exception {
+
+        // System.out.println(fact.toString());
+
         if(fact.isTerminator()){
-            out.collect(PipelineEvent.terminator(fact.getTimestamp(),fact.getTimepoint()));
+            PipelineEvent terminator = PipelineEvent.terminator(fact.getTimestamp(),fact.getTimepoint());
+            // terminator.key = this.freeVariablesInOrder;
+            // terminator.key = new ArrayList<VariableID>();
+            // terminator.key.add(this.freeVariablesInOrder.get(0));
+            out.collect(terminator);
         }else{
             assert(fact.getName().equals(this.predName) );
-
 
             ArrayList<JavaTerm<VariableID>> argsFormula = new ArrayList<>(this.args);
 
@@ -50,18 +70,19 @@ public final class MPred implements Mformula, FlatMapFunction<Fact, PipelineEven
             //corresponding data values are equal.
             Optional<HashMap<VariableID, Optional<Object>>> result = matchFV(argsFormula, argsEvent);
             if(result.isPresent()){
-
                 Assignment list = new Assignment();
+                List<VariableID> keys = new ArrayList<VariableID>();
                 for (VariableID formulaVariable : this.freeVariablesInOrder) {
                     if(!result.get().containsKey(formulaVariable) || !result.get().get(formulaVariable).isPresent()){
                         list.addLast(Optional.empty());
                     }else{
                         list.addLast(result.get().get(formulaVariable));
+                        keys.add(formulaVariable);
                     }
                 }
-
-
-                out.collect(PipelineEvent.event(fact.getTimestamp(),fact.getTimepoint(), list));
+                PipelineEvent event = PipelineEvent.event(fact.getTimestamp(),fact.getTimepoint(), list);
+                // event.key = keys;
+                out.collect(event);
             }
             //if there are no satisfactions, we simply don't put anything to the collector.
         }

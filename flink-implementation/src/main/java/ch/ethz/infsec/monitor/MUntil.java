@@ -33,6 +33,7 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     HashMap<Long, Long> timepointToTimestamp;
     HashSet<Long> terminSub1;
     HashSet<Long> terminSub2;
+    Integer numberProcessors;
 
     public MUntil(boolean b, Mformula accept, ch.ethz.infsec.policy.Interval interval,
                   Mformula accept1) {
@@ -58,6 +59,16 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     @Override
     public <T> DataStream<PipelineEvent> accept(MformulaVisitor<T> v) {
         return (DataStream<PipelineEvent>) v.visit(this);
+    }
+
+    @Override
+    public void setNumberProcessors(int numberProcessors) {
+        this.numberProcessors = numberProcessors;
+    }
+
+    @Override
+    public Integer getNumberProcessors() {
+        return this.numberProcessors;
     }
 
     @Override

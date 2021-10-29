@@ -36,6 +36,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
 
     public DataStream<PipelineEvent> visit(MPred pred) {
         OutputTag<Fact> factStream = this.hmap.get(pred.getPredName());
+        pred.setNumberProcessors(1);
         return this.mainDataStream.getSideOutput(factStream).flatMap(pred).setParallelism(1);
         // return this.mainDataStream.getSideOutput(factStream).flatMap(pred).setParallelism(Main.numberProcessors);
     }
@@ -44,10 +45,12 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         DataStream<PipelineEvent> input1 = f.op1.accept(this);
         DataStream<PipelineEvent> input2 = f.op2.accept(this);
 
+        f.setNumberProcessors(Main.numberProcessors);
+
         // get common keys
         // List<VariableID> commonKeys = f.keys;
 
-        // get collision less keys
+        // get collisionless keys
         scala.collection.mutable.HashMap<Object, Object> map = ColissionlessKeyGenerator
                 .getMapping(Main.numberProcessors);
         Map<Object, Object> mapping = JavaConverters.mapAsJavaMap(map);
@@ -57,7 +60,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         DataStream<PipelineEvent> input1duplicated = input1
                 .flatMap(new DuplicateTerminators(Main.numberProcessors, mapping))
                 .setParallelism(1);
-        input1duplicated.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_and_input1duplicate", FileSystem.WriteMode.OVERWRITE);
+        // input1duplicated.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_and_input1duplicate", FileSystem.WriteMode.OVERWRITE);
         DataStream<PipelineEvent> input2duplicated = input2
                 .flatMap(new DuplicateTerminators(Main.numberProcessors, mapping))
                 .setParallelism(1);
@@ -76,15 +79,23 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                                 return event.key;
                             }
                 }));
-        /*KeyedStream<PipelineEvent, Integer> input2Keyed = input2duplicated
+        // see result from keyed stream
+        KeyedStream<PipelineEvent, Integer> input1Keyed = input1duplicated
                 .keyBy(new KeySelector<PipelineEvent, Integer>() {
                     @Override
                     public Integer getKey(PipelineEvent event) throws Exception {
                         return event.key;
                     }
                 });
-        input2Keyed.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_and", FileSystem.WriteMode.OVERWRITE);
-        */
+        input1Keyed.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_and_1", FileSystem.WriteMode.OVERWRITE);
+        KeyedStream<PipelineEvent, Integer> input2Keyed = input2duplicated
+                .keyBy(new KeySelector<PipelineEvent, Integer>() {
+                    @Override
+                    public Integer getKey(PipelineEvent event) throws Exception {
+                        return event.key;
+                    }
+                });
+        input2Keyed.writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_and_2", FileSystem.WriteMode.OVERWRITE);
 
         // ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1.connect(input2);
         return connectedStreamsKeyed.flatMap(f).setParallelism(Main.numberProcessors);
@@ -132,7 +143,28 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
     @Override
     public DataStream<PipelineEvent> visit(MOnce f) {
         DataStream<PipelineEvent> input = f.formula.accept(this);
-        return input.flatMap(f).setParallelism(Main.numberProcessors);
+
+        f.setNumberProcessors(Main.numberProcessors);
+
+        // get collisionless keys
+        scala.collection.mutable.HashMap<Object, Object> map = ColissionlessKeyGenerator
+                .getMapping(Main.numberProcessors);
+        Map<Object, Object> mapping = JavaConverters.mapAsJavaMap(map);
+        System.out.println(mapping);
+        // duplicate terminators
+        DataStream<PipelineEvent> inputduplicated = input
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, mapping))
+                .setParallelism(1);
+        // key stream
+        KeyedStream<PipelineEvent, Integer> inputKeyed = inputduplicated
+                .keyBy(new KeySelector<PipelineEvent, Integer>() {
+                    @Override
+                    public Integer getKey(PipelineEvent event) throws Exception {
+                        return event.key;
+                    }
+                });
+        inputKeyed.flatMap(f).setParallelism(Main.numberProcessors).writeAsText("/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/res_once", FileSystem.WriteMode.OVERWRITE);
+        return inputKeyed.flatMap(f).setParallelism(Main.numberProcessors);
     }
 
     @Override

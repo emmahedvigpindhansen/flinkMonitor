@@ -20,6 +20,7 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
     Long largestInOrderTP;
     Long largestInOrderTS;
     HashMap<Long, HashSet<Assignment>> outputted;
+    Integer numberProcessors;
 
     public MEventually(ch.ethz.infsec.policy.Interval interval, Mformula mform) {
         this.formula = mform;
@@ -35,6 +36,16 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
     @Override
     public <T> DataStream<PipelineEvent> accept(MformulaVisitor<T> v) {
         return (DataStream<PipelineEvent>) v.visit(this);
+    }
+
+    @Override
+    public void setNumberProcessors(int numberProcessors) {
+        this.numberProcessors = numberProcessors;
+    }
+
+    @Override
+    public Integer getNumberProcessors() {
+        return this.numberProcessors;
     }
 
 

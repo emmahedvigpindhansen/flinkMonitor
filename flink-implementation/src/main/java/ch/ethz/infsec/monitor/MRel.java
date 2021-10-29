@@ -8,6 +8,7 @@ import ch.ethz.infsec.monitor.visitor.*;
 
 public class MRel implements Mformula, FlatMapFunction<Fact, PipelineEvent> {
     Table table;
+    Integer numberProcessors;
 
     public MRel(Table table){
         this.table = table;
@@ -18,6 +19,15 @@ public class MRel implements Mformula, FlatMapFunction<Fact, PipelineEvent> {
         return (DataStream<PipelineEvent>) v.visit(this);
     }
 
+    @Override
+    public void setNumberProcessors(int numberProcessors) {
+        this.numberProcessors = numberProcessors;
+    }
+
+    @Override
+    public Integer getNumberProcessors() {
+        return this.numberProcessors;
+    }
 
     @Override
     public void flatMap(Fact value, Collector<PipelineEvent> out) throws Exception {

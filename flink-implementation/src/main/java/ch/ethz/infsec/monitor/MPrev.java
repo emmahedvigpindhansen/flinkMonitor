@@ -14,8 +14,7 @@ public class MPrev implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
     HashMap<Long, HashSet<PipelineEvent>> A; //mapping from timepoint to set of assignments (set of PEs)
     HashMap<Long, Long> T; //mapping from timepoint to timestamps for non-terminator events
     HashMap<Long, Long> TT;//mapping from timepoint to timestamps for terminator events
-
-
+    Integer numberProcessors;
     
 
     public MPrev(ch.ethz.infsec.policy.Interval interval, Mformula mform, boolean bool, LinkedList<Long> tsList) {
@@ -31,6 +30,16 @@ public class MPrev implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
     @Override
     public <T> DataStream<PipelineEvent> accept(MformulaVisitor<T> v) {
         return (DataStream<PipelineEvent>) v.visit(this);
+    }
+
+    @Override
+    public void setNumberProcessors(int numberProcessors) {
+        this.numberProcessors = numberProcessors;
+    }
+
+    @Override
+    public Integer getNumberProcessors() {
+        return this.numberProcessors;
     }
 
 

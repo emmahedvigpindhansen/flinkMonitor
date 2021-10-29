@@ -8,7 +8,6 @@ import ch.ethz.infsec.monitor.visitor.*;
 
 public interface Mformula {
     <T> DataStream<PipelineEvent> accept(MformulaVisitor<T> v);
-
-
-
+    void setNumberProcessors(int numberProcessors);
+    Integer getNumberProcessors();
 }

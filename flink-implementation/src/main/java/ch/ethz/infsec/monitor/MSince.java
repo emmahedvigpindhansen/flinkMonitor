@@ -28,6 +28,7 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     HashMap<Long, Long> timepointToTimestamp;
 
     Long startEvalTimepoint;
+    Integer numberProcessors;
 
 
     public MSince(boolean b, Mformula accept, ch.ethz.infsec.policy.Interval interval, Mformula accept1) {
@@ -53,6 +54,17 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     public <T> DataStream<PipelineEvent> accept(MformulaVisitor<T> v) {
         return (DataStream<PipelineEvent>) v.visit(this);
     }
+
+    @Override
+    public void setNumberProcessors(int numberProcessors) {
+        this.numberProcessors = numberProcessors;
+    }
+
+    @Override
+    public Integer getNumberProcessors() {
+        return this.numberProcessors;
+    }
+
 
     @Override
     public void flatMap2(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {

@@ -1,4 +1,5 @@
 package ch.ethz.infsec.monitor;
+import ch.ethz.infsec.Main;
 import ch.ethz.infsec.policy.Interval;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -12,7 +13,7 @@ import ch.ethz.infsec.monitor.visitor.*;
 
 public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineEvent> {
 
-    ch.ethz.infsec.policy.Interval interval;
+    public ch.ethz.infsec.policy.Interval interval;
     public Mformula formula;
 
     HashMap<Long, HashSet<Assignment>> buckets; //indexed by timepoints, stores assignments that will be analyzed by future timepoints
@@ -21,6 +22,9 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
     Long largestInOrderTP;
     Long largestInOrderTS;
     HashMap<Long, HashSet<Assignment>> outputted;
+    HashMap<Long, Integer> terminatorCount;
+
+    Integer numberProcessors;
 
     public MOnce(ch.ethz.infsec.policy.Interval interval, Mformula mform) {
         this.formula = mform;
@@ -30,6 +34,7 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
         this.buckets = new HashMap<>();
         this.timepointToTimestamp = new HashMap<>();
         this.terminators = new HashMap<>();
+        this.terminatorCount = new HashMap<>();
         largestInOrderTP = -1L;
         largestInOrderTS = -1L;
     }
@@ -39,6 +44,15 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
         return (DataStream<PipelineEvent>) v.visit(this);
     }
 
+    @Override
+    public void setNumberProcessors(int numberProcessors) {
+        this.numberProcessors = numberProcessors;
+    }
+
+    @Override
+    public Integer getNumberProcessors() {
+        return this.numberProcessors;
+    }
 
     @Override
     public void flatMap(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
@@ -56,19 +70,25 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
             }
 
         }else{
+            if (!terminatorCount.containsKey(event.getTimepoint())) {
+                terminatorCount.put(event.getTimepoint(), 1);
+            } else {
+                terminatorCount.put(event.getTimepoint(), terminatorCount.get(event.getTimepoint()) + 1);
+            }
             if(!terminators.containsKey(event.getTimepoint())){
                 terminators.put(event.getTimepoint(), event.getTimestamp());
-            }else{
+            }/*else{
                 throw new RuntimeException("cannot receive Terminator twice");
-            }
-            while(terminators.containsKey(largestInOrderTP + 1L)){
+            }*/
+            while(terminators.containsKey(largestInOrderTP + 1L)
+                    && (terminatorCount.get(largestInOrderTP + 1L).equals(this.formula.getNumberProcessors()))){
                 largestInOrderTP++;
                 largestInOrderTS = terminators.get(largestInOrderTP);
             }
         }
 
+         // EH :  should we wait to handle the event until received correct amount of terminators?
         if(event.isPresent()){
-
             for(Long term : terminators.keySet()){
                 if(IntervalCondition.mem2(terminators.get(term) - event.getTimestamp(), interval)){
                     out.collect(PipelineEvent.event(terminators.get(term), term, event.get()));
@@ -86,10 +106,11 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
                 }
             }
         }
+
         handleBuffered(out);
 
     }
-
+    // EH : no changes here bc we evaluate wrt largestInOrderTP which only updates when received correct amount of terminators
     public void handleBuffered(Collector collector){
         HashSet<Long> toRemove = new HashSet<>();
         HashSet<Long> toRemoveTPTS = new HashSet<>();
@@ -106,6 +127,7 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
         }
         for(Long tp : toRemove){
             terminators.remove(tp);
+            terminatorCount.remove(tp);
         }
 
         for(Long buc : buckets.keySet()){

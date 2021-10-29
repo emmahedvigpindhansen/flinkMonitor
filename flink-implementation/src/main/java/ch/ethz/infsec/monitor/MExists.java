@@ -12,6 +12,7 @@ public class MExists implements Mformula, FlatMapFunction<PipelineEvent, Pipelin
 
     public Mformula subFormula;
     VariableID var;
+    Integer numberProcessors;
 
 
     public MExists(Mformula subformula, VariableID var){
@@ -23,6 +24,16 @@ public class MExists implements Mformula, FlatMapFunction<PipelineEvent, Pipelin
     @Override
     public <T> DataStream<PipelineEvent> accept(MformulaVisitor<T> v) {
         return (DataStream<PipelineEvent>) v.visit(this);
+    }
+
+    @Override
+    public void setNumberProcessors(int numberProcessors) {
+        this.numberProcessors = numberProcessors;
+    }
+
+    @Override
+    public Integer getNumberProcessors() {
+        return this.numberProcessors;
     }
 
 

@@ -16,6 +16,7 @@ public class MOr implements Mformula, CoFlatMapFunction<PipelineEvent, PipelineE
     public Mformula op2;
     HashSet<Long> terminatorLHS;
     HashSet<Long> terminatorRHS;
+    Integer numberProcessors;
 
     public MOr(Mformula arg1, Mformula arg2) {
         op1 = arg1;
@@ -28,6 +29,16 @@ public class MOr implements Mformula, CoFlatMapFunction<PipelineEvent, PipelineE
     @Override
     public <T> DataStream<PipelineEvent> accept(MformulaVisitor<T> v) {
         return (DataStream<PipelineEvent>) v.visit(this);
+    }
+
+    @Override
+    public void setNumberProcessors(int numberProcessors) {
+        this.numberProcessors = numberProcessors;
+    }
+
+    @Override
+    public Integer getNumberProcessors() {
+        return this.numberProcessors;
     }
 
     @Override
