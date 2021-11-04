@@ -21,6 +21,7 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
     Long largestInOrderTS;
     HashMap<Long, HashSet<Assignment>> outputted;
     Integer numberProcessors;
+    HashMap<Long, Integer> terminatorCount;
 
     public MEventually(ch.ethz.infsec.policy.Interval interval, Mformula mform) {
         this.formula = mform;
@@ -29,6 +30,7 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
         this.buckets = new HashMap<>();
         this.timepointToTimestamp = new HashMap<>();
         this.terminators = new HashMap<>();
+        this.terminatorCount = new HashMap<>();
         largestInOrderTP = -1L;
         largestInOrderTS = -1L;
     }
@@ -65,23 +67,28 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
             }
 
         }else{
+            if (!terminatorCount.containsKey(event.getTimepoint())) {
+                terminatorCount.put(event.getTimepoint(), 1);
+            } else {
+                terminatorCount.put(event.getTimepoint(), terminatorCount.get(event.getTimepoint()) + 1);
+            }
             if(!terminators.containsKey(event.getTimepoint())){
                 terminators.put(event.getTimepoint(), event.getTimestamp());
-            }else{
+            }/*else{
                 throw new RuntimeException("cannot receive Terminator twice");
-            }
-            while(terminators.containsKey(largestInOrderTP + 1L)){
+            }*/
+            while(terminators.containsKey(largestInOrderTP + 1L)
+                    && (terminatorCount.get(largestInOrderTP + 1L).equals(this.formula.getNumberProcessors()))){
                 largestInOrderTP++;
                 largestInOrderTS = terminators.get(largestInOrderTP);
             }
         }
 
+        // EH :  should we wait to handle the event until received correct amount of terminators?
         if(event.isPresent()){
-
             for(Long term : terminators.keySet()){
                 if(IntervalCondition.mem2(event.getTimestamp() - terminators.get(term) , interval)){
                     out.collect(PipelineEvent.event(terminators.get(term), term, event.get()));
-
                 }
             }
         }else{
@@ -97,14 +104,13 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
 
         }
         handleBuffered(out);
-
     }
 
+    // EH : no changes here bc we evaluate wrt largestInOrderTP which only updates when received correct amount of terminators
     public void handleBuffered(Collector collector){
         HashSet<Long> toRemove = new HashSet<>();
         HashSet<Long> toRemoveTPTS = new HashSet<>();
         HashSet<Long> toRemoveBuckets = new HashSet<>();
-
 
         Set<Long> termsCopy = new HashSet<>(terminators.keySet());
         for(Long term : termsCopy){
