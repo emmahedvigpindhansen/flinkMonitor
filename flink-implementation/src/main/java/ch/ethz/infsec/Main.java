@@ -140,7 +140,7 @@ public class Main {
             DataStream<String> strOutput = sink.map(PipelineEvent::toString);
             // strOutput.addSink(StreamingFileSink.forRowFormat(new Path(outputFile),new SimpleStringEncoder<String>("UTF-8")).build()).setParallelism(1);
 
-            strOutput.writeAsText(outputFile, FileSystem.WriteMode.OVERWRITE);
+            strOutput.writeAsText(outputFile, FileSystem.WriteMode.OVERWRITE).setParallelism(1);
 
             e.execute(jobName);
         }
