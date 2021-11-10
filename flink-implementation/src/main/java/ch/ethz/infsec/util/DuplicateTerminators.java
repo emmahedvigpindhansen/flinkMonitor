@@ -1,19 +1,19 @@
 package ch.ethz.infsec.util;
 
-import ch.ethz.infsec.slicer.ColissionlessKeyGenerator;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.util.Collector;
-import scala.collection.JavaConverters;
-
-import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class DuplicateTerminators implements FlatMapFunction<PipelineEvent, PipelineEvent> {
 
     int numberProcessors;
+    boolean sameProcessor;
+    int randomNumberSameProcessor;
 
-    public DuplicateTerminators(int numberProcessors) {
+    public DuplicateTerminators(int numberProcessors, boolean sameProcessor) {
         this.numberProcessors = numberProcessors;
+        this.sameProcessor = sameProcessor;
+        this.randomNumberSameProcessor = ThreadLocalRandom.current().nextInt(0, this.numberProcessors);
     }
 
     @Override
@@ -22,11 +22,17 @@ public class DuplicateTerminators implements FlatMapFunction<PipelineEvent, Pipe
         if (!event.isPresent()) {
             for (int i = 0; i < this.numberProcessors; i++) {
                 PipelineEvent temp = new PipelineEvent(event.getTimestamp(), event.getTimepoint(), true, event.get());
-                temp.key = i;
+                temp.key = i; // change to temp.SetKey(i) in PipelineEvent
                 out.collect(temp);
             }
         } else {
-            event.key = 0; // randomize this?? if so do from MformulaVisitorFlink
+            if (sameProcessor) {
+                event.key = this.randomNumberSameProcessor;
+            }
+            else {
+                int randomNum = ThreadLocalRandom.current().nextInt(0, this.numberProcessors);
+                event.key = randomNum;
+            }
             out.collect(event);
         }
     }

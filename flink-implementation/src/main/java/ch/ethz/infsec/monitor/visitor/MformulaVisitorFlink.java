@@ -60,7 +60,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                 .flatMap(new DuplicateTerminators(Main.numberProcessors, true))
                 .setParallelism(1);
         // partition data
-        ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1.partitionCustom(new Partitioner<Integer>() {
+        ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1duplicated.partitionCustom(new Partitioner<Integer>() {
             @Override
             public int partition(Integer key, int numPartitions) {
                 return key % numPartitions;
@@ -71,7 +71,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                     }
                 })
                 .connect(
-                        input2.partitionCustom(new Partitioner<Integer>() {
+                        input2duplicated.partitionCustom(new Partitioner<Integer>() {
                     @Override
                     public int partition(Integer key, int numPartitions) {
                         return key % numPartitions;
@@ -145,7 +145,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                 .flatMap(new DuplicateTerminators(Main.numberProcessors, false))
                 .setParallelism(1);
         // partition data
-        ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1.partitionCustom(new Partitioner<Integer>() {
+        ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1duplicated.partitionCustom(new Partitioner<Integer>() {
                     @Override
                     public int partition(Integer key, int numPartitions) {
                         return key % numPartitions;
@@ -156,7 +156,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                     }
                 })
                 .connect(
-                        input2.partitionCustom(new Partitioner<Integer>() {
+                        input2duplicated.partitionCustom(new Partitioner<Integer>() {
                             @Override
                             public int partition(Integer key, int numPartitions) {
                                 return key % numPartitions;
@@ -208,7 +208,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                 .flatMap(new DuplicateTerminators(Main.numberProcessors, true))
                 .setParallelism(1);
         // partition data
-        ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1.partitionCustom(new Partitioner<Integer>() {
+        ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1duplicated.partitionCustom(new Partitioner<Integer>() {
                     @Override
                     public int partition(Integer key, int numPartitions) {
                         return key % numPartitions;
@@ -219,7 +219,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                     }
                 })
                 .connect(
-                        input2.partitionCustom(new Partitioner<Integer>() {
+                        input2duplicated.partitionCustom(new Partitioner<Integer>() {
                             @Override
                             public int partition(Integer key, int numPartitions) {
                                 return key % numPartitions;
@@ -249,7 +249,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                 .flatMap(new DuplicateTerminators(Main.numberProcessors, true))
                 .setParallelism(1);
         // partition data
-        ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1.partitionCustom(new Partitioner<Integer>() {
+        ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1duplicated.partitionCustom(new Partitioner<Integer>() {
                     @Override
                     public int partition(Integer key, int numPartitions) {
                         return key % numPartitions;
@@ -260,7 +260,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                     }
                 })
                 .connect(
-                        input2.partitionCustom(new Partitioner<Integer>() {
+                        input2duplicated.partitionCustom(new Partitioner<Integer>() {
                             @Override
                             public int partition(Integer key, int numPartitions) {
                                 return key % numPartitions;
