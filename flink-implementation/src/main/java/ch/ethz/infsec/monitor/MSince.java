@@ -23,12 +23,17 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
 
     Long largestInOrderTPsub1;
     Long largestInOrderTPsub2;
+    Long largestInOrderTP;
+    Long largestInOrderTS;
     HashSet<Long> terminLeft;
     HashSet<Long> terminRight;
+    HashMap<Long, Integer> terminatorCount1;
+    HashMap<Long, Integer> terminatorCount2;
 
     HashMap<Long, Long> timepointToTimestamp;
 
     Long startEvalTimepoint;
+    Long startEvalTimestamp;
     Integer numberProcessors;
 
 
@@ -44,11 +49,16 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
         this.largestInOrderTPsub1 = -1L;
         this.largestInOrderTPsub2 = -1L;
         this.startEvalTimepoint = 0L;
+        this.startEvalTimestamp = 0L;
         HashMap<Long, Table> fst = new HashMap<>();
         HashMap<Long, Table> snd = new HashMap<>();
         this.mbuf2 = new Tuple<>(fst, snd);
         this.terminLeft = new HashSet<>();
         this.terminRight = new HashSet<>();
+        largestInOrderTP = -1L;
+        largestInOrderTS = -1L;
+        this.terminatorCount1 = new HashMap<>();
+        this.terminatorCount2 = new HashMap<>();
     }
 
 
@@ -65,6 +75,114 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     @Override
     public Integer getNumberProcessors() {
         return this.numberProcessors;
+    }
+
+    @Override
+    public void flatMap1(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
+
+        if(!timepointToTimestamp.containsKey(event.getTimepoint())){
+            timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
+        }
+
+        if(event.isPresent()){
+
+            System.out.println("1 : " + event.toString());
+
+            if(mbuf2.fst().containsKey(event.getTimepoint())){
+                mbuf2.fst().get(event.getTimepoint()).add(event.get());
+            }else{
+                mbuf2.fst().put(event.getTimepoint(), Table.one(event.get()));
+            }
+            if(msaux.containsKey(event.getTimestamp())){
+                msaux.get(event.getTimestamp()).add(event.get());
+            }else{
+                msaux.put(event.getTimestamp(), Table.one(event.get()));
+            }
+
+            // see if previous satisfaction within given interval
+            // (search left)
+            // change to use Join eventually
+            for (Long ts : satisfactions.keySet()) {
+                if (event.getTimestamp() >= ts
+                        && event.getTimestamp() - ts <= (int) interval.upper().get()) {
+                    satisfactions.put(event.getTimestamp(), Table.one(event.get()));
+                }
+            }
+
+            System.out.println("msaux : ");
+            System.out.println(msaux.keySet());
+            System.out.println(msaux.values());
+            System.out.println("mbuf2 fst : ");
+            System.out.println(mbuf2.fst.keySet());
+            System.out.println(mbuf2.fst.values());
+            System.out.println("mbuf2 snd: ");
+            System.out.println(mbuf2.snd.keySet());
+            System.out.println(mbuf2.snd.values());
+            System.out.println("satisfactions: ");
+            System.out.println(satisfactions.keySet());
+            System.out.println(satisfactions.values());
+
+
+        }else{
+            if (!terminatorCount1.containsKey(event.getTimepoint())) {
+                terminatorCount1.put(event.getTimepoint(), 1);
+            } else {
+                terminatorCount1.put(event.getTimepoint(), terminatorCount1.get(event.getTimepoint()) + 1);
+            }
+            if(!mbuf2.fst().containsKey(event.getTimepoint())){
+                mbuf2.fst().put(event.getTimepoint(), Table.empty());
+            }
+            if(!msaux.containsKey(event.getTimestamp())){
+                msaux.put(event.getTimestamp(), Table.empty());
+            }
+            if(!terminLeft.contains(event.getTimepoint())){
+                terminLeft.add(event.getTimepoint());
+            }/*else{
+                throw new Exception("Not possible to receive two terminators for the same timepoint.");
+            }*/
+            while(terminLeft.contains(largestInOrderTP + 1L) && terminRight.contains(largestInOrderTP + 1L)
+                    && (terminatorCount1.get(largestInOrderTP + 1L).equals(this.formula1.getNumberProcessors()))
+                    && (terminatorCount2.get(largestInOrderTP + 1L).equals(this.formula2.getNumberProcessors()))){
+                largestInOrderTP++;
+                largestInOrderTS = timepointToTimestamp.get(largestInOrderTP);
+                startEvalTimestamp = Math.min(0, largestInOrderTS - (int) interval.upper().get());
+                // map startEvalTimestamp to startEvalTimepoint
+                /*for (Map.Entry<Long, Long> entry : timepointToTimestamp.entrySet()) {
+                    if (Objects.equals(startEvalTimestamp, entry.getValue())) {
+                        startEvalTimepoint = entry.getKey();
+                        break;
+                    }
+                }*/
+            }
+            /*while(terminLeft.contains(largestInOrderTPsub1 + 1L)){
+                largestInOrderTPsub1++;
+            }
+            if(largestInOrderTPsub2 >= startEvalTimepoint && largestInOrderTPsub1>= startEvalTimepoint &&
+                    !(largestInOrderTPsub2 == -1 || largestInOrderTPsub1 == -1)){
+                Mbuf2take_function func = (Table r1,
+                                           Table r2,
+                                           Long t, HashMap<Long, Table> zsAux) -> {Table us_result = update_since(r1, r2, timepointToTimestamp.get(t));
+                    HashMap<Long, Table> intermRes = new HashMap<>(zsAux); intermRes.put(t, us_result);
+                    return intermRes;};
+
+                HashMap<Long, Table> msaux_zs = mbuf2t_take(func,new HashMap<>(), startEvalTimepoint);
+
+                Long outResultTP = startEvalTimepoint;
+                while(msaux_zs.containsKey(outResultTP)){
+                    Table evalSet = msaux_zs.get(outResultTP);
+                    for(Assignment oa : evalSet){
+
+                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(outResultTP), outResultTP, oa));
+
+                    }
+                    collector.collect(PipelineEvent.terminator(timepointToTimestamp.get(outResultTP), outResultTP));
+                    outResultTP++;
+                }
+                startEvalTimepoint += msaux_zs.size();
+            }*/
+        }
+        cleanUpDatastructures();
+
     }
 
 
@@ -123,6 +241,11 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
 
 
         }else{
+            if (!terminatorCount2.containsKey(event.getTimepoint())) {
+                terminatorCount2.put(event.getTimepoint(), 1);
+            } else {
+                terminatorCount2.put(event.getTimepoint(), terminatorCount2.get(event.getTimepoint()) + 1);
+            }
             if(!mbuf2.snd().containsKey(event.getTimepoint())){
                 mbuf2.snd().put(event.getTimepoint(), Table.empty());
             }
@@ -131,8 +254,22 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             }
             if(!terminRight.contains(event.getTimepoint())){
                 terminRight.add(event.getTimepoint());
-            }else{
+            }/*else{
                 throw new Exception("Not possible to receive two terminators for the same timepoint.");
+            }*/
+            while(terminLeft.contains(largestInOrderTP + 1L) && terminRight.contains(largestInOrderTP + 1L)
+                    && (terminatorCount1.get(largestInOrderTP + 1L).equals(this.formula1.getNumberProcessors()))
+                    && (terminatorCount2.get(largestInOrderTP + 1L).equals(this.formula2.getNumberProcessors()))){
+                largestInOrderTP++;
+                largestInOrderTS = timepointToTimestamp.get(largestInOrderTP);
+                startEvalTimestamp = Math.min(0, largestInOrderTS - (int) interval.upper().get());
+                // map startEvalTimestamp to startEvalTimepoint
+                /*for (Map.Entry<Long, Long> entry : timepointToTimestamp.entrySet()) {
+                    if (Objects.equals(startEvalTimestamp, entry.getValue())) {
+                        startEvalTimepoint = entry.getKey();
+                        break;
+                    }
+                }*/
             }
             /*while(terminRight.contains(largestInOrderTPsub2 + 1L)){
                 largestInOrderTPsub2++;
@@ -162,94 +299,7 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             }*/
 
         }
-        //cleanUpDatastructures();
-    }
-
-    @Override
-    public void flatMap1(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
-        if(!timepointToTimestamp.containsKey(event.getTimepoint())){
-            timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
-        }
-
-        if(event.isPresent()){
-
-            System.out.println("1 : " + event.toString());
-
-            if(mbuf2.fst().containsKey(event.getTimepoint())){
-                mbuf2.fst().get(event.getTimepoint()).add(event.get());
-            }else{
-                mbuf2.fst().put(event.getTimepoint(), Table.one(event.get()));
-            }
-            if(msaux.containsKey(event.getTimestamp())){
-                msaux.get(event.getTimestamp()).add(event.get());
-            }else{
-                msaux.put(event.getTimestamp(), Table.one(event.get()));
-            }
-
-            // see if previous satisfaction within given interval
-            // (search left)
-            // change to use Join eventually
-            for (Long ts : satisfactions.keySet()) {
-                if (event.getTimestamp() >= ts
-                && event.getTimestamp() - ts <= (int) interval.upper().get()) {
-                    satisfactions.put(event.getTimestamp(), Table.one(event.get()));
-                }
-            }
-
-            System.out.println("msaux : ");
-            System.out.println(msaux.keySet());
-            System.out.println(msaux.values());
-            System.out.println("mbuf2 fst : ");
-            System.out.println(mbuf2.fst.keySet());
-            System.out.println(mbuf2.fst.values());
-            System.out.println("mbuf2 snd: ");
-            System.out.println(mbuf2.snd.keySet());
-            System.out.println(mbuf2.snd.values());
-            System.out.println("satisfactions: ");
-            System.out.println(satisfactions.keySet());
-            System.out.println(satisfactions.values());
-
-
-        }else{
-            if(!mbuf2.fst().containsKey(event.getTimepoint())){
-                mbuf2.fst().put(event.getTimepoint(), Table.empty());
-            }
-            if(!msaux.containsKey(event.getTimestamp())){
-                msaux.put(event.getTimestamp(), Table.empty());
-            }
-            if(!terminLeft.contains(event.getTimepoint())){
-                terminLeft.add(event.getTimepoint());
-            }else{
-                throw new Exception("Not possible to receive two terminators for the same timepoint.");
-            }
-            /*while(terminLeft.contains(largestInOrderTPsub1 + 1L)){
-                largestInOrderTPsub1++;
-            }
-            if(largestInOrderTPsub2 >= startEvalTimepoint && largestInOrderTPsub1>= startEvalTimepoint &&
-                    !(largestInOrderTPsub2 == -1 || largestInOrderTPsub1 == -1)){
-                Mbuf2take_function func = (Table r1,
-                                           Table r2,
-                                           Long t, HashMap<Long, Table> zsAux) -> {Table us_result = update_since(r1, r2, timepointToTimestamp.get(t));
-                    HashMap<Long, Table> intermRes = new HashMap<>(zsAux); intermRes.put(t, us_result);
-                    return intermRes;};
-
-                HashMap<Long, Table> msaux_zs = mbuf2t_take(func,new HashMap<>(), startEvalTimepoint);
-
-                Long outResultTP = startEvalTimepoint;
-                while(msaux_zs.containsKey(outResultTP)){
-                    Table evalSet = msaux_zs.get(outResultTP);
-                    for(Assignment oa : evalSet){
-
-                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(outResultTP), outResultTP, oa));
-
-                    }
-                    collector.collect(PipelineEvent.terminator(timepointToTimestamp.get(outResultTP), outResultTP));
-                    outResultTP++;
-                }
-                startEvalTimepoint += msaux_zs.size();
-            }*/
-        }
-        //cleanUpDatastructures();
+        cleanUpDatastructures();
     }
 
     public Table update_since(Table rel1, Table rel2, Long nt){
@@ -311,6 +361,7 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     public void cleanUpDatastructures(){
         mbuf2.fst.keySet().removeIf(tp -> tp < startEvalTimepoint);
         mbuf2.snd.keySet().removeIf(tp -> tp < startEvalTimepoint);
+        satisfactions.keySet().removeIf(ts -> ts < startEvalTimestamp);
         timepointToTimestamp.keySet().removeIf(tp -> tp < startEvalTimepoint);
     }
 
