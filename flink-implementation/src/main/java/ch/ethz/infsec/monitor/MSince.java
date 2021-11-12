@@ -36,6 +36,8 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     Long startEvalTimepoint;
     Long startEvalTimestamp;
     Integer numberProcessors;
+    Boolean updatedTP1 = false;
+    Boolean updatedTP2 = false;
 
 
     public MSince(boolean b, Mformula accept, ch.ethz.infsec.policy.Interval interval, Mformula accept1) {
@@ -90,9 +92,7 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
         }
 
         if(event.isPresent()){
-
-            System.out.println("1 : " + event.toString());
-
+            
             if(mbuf2.fst().containsKey(event.getTimepoint())){
                 mbuf2.fst().get(event.getTimepoint()).add(event.get());
             }else{
@@ -134,18 +134,8 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                 }
             }
 
-            System.out.println("mbuf2 fst : ");
-            System.out.println(mbuf2.fst.keySet());
-            System.out.println(mbuf2.fst.values());
-            System.out.println("mbuf2 snd: ");
-            System.out.println(mbuf2.snd.keySet());
-            System.out.println(mbuf2.snd.values());
-            System.out.println("satisfactions: ");
-            System.out.println(satisfactions.keySet());
-            System.out.println(satisfactions.values());
-
-
         } else {
+
             if (!terminatorCount1.containsKey(event.getTimepoint())) {
                 terminatorCount1.put(event.getTimepoint(), 1);
             } else {
@@ -159,50 +149,26 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                     && (terminatorCount1.get(largestInOrderTP + 1L).equals(this.formula1.getNumberProcessors()))
                     && (terminatorCount2.get(largestInOrderTP + 1L).equals(this.formula2.getNumberProcessors()))){
                 largestInOrderTP++;
+                updatedTP1 = true;
             }
-            /*largestInOrderTS = timepointToTimestamp.get(largestInOrderTP);
-            startEvalTimestamp = largestInOrderTS - (int) interval.upper().get();
-            // find timestamp nearest startEvalTimestamp (from below)
-            double minDiff = Double.MAX_VALUE;
-            Long nearest = null;
-            for (long key : timestampToTimepoint.keySet()) {
-                double diff = startEvalTimestamp - key;
-                if (diff < minDiff && diff > 0) {
-                    nearest = key;
-                    minDiff = diff;
-                }
-            }
-            startEvalTimepoint = timestampToTimepoint.get(nearest);*/
-
-            /*while(terminLeft.contains(largestInOrderTPsub1 + 1L)){
-                largestInOrderTPsub1++;
-            }
-            if(largestInOrderTPsub2 >= startEvalTimepoint && largestInOrderTPsub1>= startEvalTimepoint &&
-                    !(largestInOrderTPsub2 == -1 || largestInOrderTPsub1 == -1)){
-                Mbuf2take_function func = (Table r1,
-                                           Table r2,
-                                           Long t, HashMap<Long, Table> zsAux) -> {Table us_result = update_since(r1, r2, timepointToTimestamp.get(t));
-                    HashMap<Long, Table> intermRes = new HashMap<>(zsAux); intermRes.put(t, us_result);
-                    return intermRes;};
-
-                HashMap<Long, Table> msaux_zs = mbuf2t_take(func,new HashMap<>(), startEvalTimepoint);
-
-                Long outResultTP = startEvalTimepoint;
-                while(msaux_zs.containsKey(outResultTP)){
-                    Table evalSet = msaux_zs.get(outResultTP);
-                    for(Assignment oa : evalSet){
-
-                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(outResultTP), outResultTP, oa));
-
+            if (largestInOrderTP > -1L && updatedTP1) {
+                largestInOrderTS = timepointToTimestamp.get(largestInOrderTP);
+                startEvalTimestamp = largestInOrderTS - (int) interval.upper().get();
+                // find timestamp nearest startEvalTimestamp (from below)
+                double minDiff = Double.MAX_VALUE;
+                Long nearest = null;
+                for (long key : timestampToTimepoint.keySet()) {
+                    double diff = startEvalTimestamp - key;
+                    if (diff < minDiff && diff > 0) {
+                        nearest = key;
+                        minDiff = diff;
                     }
-                    collector.collect(PipelineEvent.terminator(timepointToTimestamp.get(outResultTP), outResultTP));
-                    outResultTP++;
                 }
-                startEvalTimepoint += msaux_zs.size();
-            }*/
+                startEvalTimepoint = timestampToTimepoint.containsKey(nearest) ? timestampToTimepoint.get(nearest) : 0L;
+            }
         }
-        // cleanUpDatastructures();
-
+        cleanUpDatastructures();
+        updatedTP1 = false;
     }
 
 
@@ -217,8 +183,6 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
         }
 
         if(event.isPresent()){
-
-            System.out.println("2 : " + event.toString());
 
             if(mbuf2.snd().containsKey(event.getTimepoint())){
                 mbuf2.snd().get(event.getTimepoint()).add(event.get());
@@ -254,17 +218,6 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                 tp += 1L;
             }
 
-            System.out.println("mbuf2 fst : ");
-            System.out.println(mbuf2.fst.keySet());
-            System.out.println(mbuf2.fst.values());
-            System.out.println("mbuf2 snd: ");
-            System.out.println(mbuf2.snd.keySet());
-            System.out.println(mbuf2.snd.values());
-            System.out.println("satisfactions: ");
-            System.out.println(satisfactions.keySet());
-            System.out.println(satisfactions.values());
-
-
         } else {
             if (!terminatorCount2.containsKey(event.getTimepoint())) {
                 terminatorCount2.put(event.getTimepoint(), 1);
@@ -279,109 +232,29 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                     && (terminatorCount1.get(largestInOrderTP + 1L).equals(this.formula1.getNumberProcessors()))
                     && (terminatorCount2.get(largestInOrderTP + 1L).equals(this.formula2.getNumberProcessors()))) {
                 largestInOrderTP++;
+                updatedTP2 = true;
             }
-            /*largestInOrderTS = timepointToTimestamp.get(largestInOrderTP);
-            startEvalTimestamp = largestInOrderTS - (int) interval.upper().get();
-            // find timestamp nearest startEvalTimestamp (from below)
-            double minDiff = Double.MAX_VALUE;
-            Long nearest = null;
-            for (long key : timestampToTimepoint.keySet()) {
-                double diff = startEvalTimestamp - key;
-                if (diff < minDiff && diff > 0) {
-                    nearest = key;
-                    minDiff = diff;
-                }
-            }
-            startEvalTimepoint = timestampToTimepoint.get(nearest);*/
-
-            /*while(terminRight.contains(largestInOrderTPsub2 + 1L)){
-                largestInOrderTPsub2++;
-            }
-            if(largestInOrderTPsub2 >= startEvalTimepoint && largestInOrderTPsub1>= startEvalTimepoint &&
-                    !(largestInOrderTPsub2 == -1 || largestInOrderTPsub1 == -1)){
-                Mbuf2take_function func = (Table r1,
-                                           Table r2,
-                                           Long t, HashMap<Long, Table> zsAux) -> {Table us_result = update_since(r1, r2, timepointToTimestamp.get(t));
-                    HashMap<Long, Table> intermRes = new HashMap<>(zsAux);
-                    intermRes.put(t, us_result);
-                    return intermRes;};
-                HashMap<Long, Table> msaux_zs = mbuf2t_take(func, new HashMap<>(), startEvalTimepoint);
-                Long outResultTP = startEvalTimepoint;
-                while(msaux_zs.containsKey(outResultTP)){
-                    Table evalSet = msaux_zs.get(outResultTP);
-                    for(Assignment oa : evalSet){
-
-                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(outResultTP), outResultTP, oa));
-
+            if (largestInOrderTP > -1L && updatedTP2) {
+                largestInOrderTS = timepointToTimestamp.get(largestInOrderTP);
+                startEvalTimestamp = largestInOrderTS - (int) interval.upper().get();
+                // find timestamp nearest startEvalTimestamp (from below)
+                double minDiff = Double.MAX_VALUE;
+                Long nearest = null;
+                for (long key : timestampToTimepoint.keySet()) {
+                    double diff = startEvalTimestamp - key;
+                    if (diff < minDiff && diff > 0) {
+                        nearest = key;
+                        minDiff = diff;
                     }
-                    collector.collect(PipelineEvent.terminator(timepointToTimestamp.get(outResultTP), outResultTP));
-                    outResultTP++;
                 }
-                startEvalTimepoint += msaux_zs.size();
-
-            }*/
-
-        }
-        // cleanUpDatastructures();
-    }
-    // fig 2 in "formally verified, optimized..."
-    public Table update_since(Table rel1, Table rel2, Long nt){
-        HashMap<Long, Table> auxResult = new HashMap<>();
-        HashMap<Long, Table> auxIntervalList = new HashMap<>();
-
-        // EH : update auxIntervalList with rel1 join rel2
-        for(Long t : msaux.keySet()){
-            Table rel = msaux.get(t);
-            Long subtr = nt - t;
-            if(!interval.upper().isDefined() || (interval.upper().isDefined() && (subtr.intValue() <= ((int) interval.upper().get())))){
-                auxIntervalList.put(t, Table.join(rel, pos, rel1));
+                startEvalTimepoint = timestampToTimepoint.containsKey(nearest) ? timestampToTimepoint.get(nearest) : 0L;
             }
         }
-        HashMap<Long, Table> auxIntervalList2 = new HashMap<>(auxIntervalList);
-        if(auxIntervalList.size() == 0){
-            auxResult.put(nt, rel2);
-            auxIntervalList2.put(nt,rel2);
-        }else{
-            Table x = auxIntervalList.get(timepointToTimestamp.get(startEvalTimepoint));
-            if(timepointToTimestamp.get(startEvalTimepoint).equals(nt)){
-                Table unionSet = Table.fromTable(x);
-                unionSet.addAll(rel2);
-                auxIntervalList2.put(timepointToTimestamp.get(startEvalTimepoint), unionSet);
-            }else{
-                auxIntervalList2.put(timepointToTimestamp.get(startEvalTimepoint),x);
-                auxIntervalList2.put(nt, rel2);
-            }
-        }
-
-        Table bigUnion = new Table();
-        for(Long t : auxIntervalList2.keySet()){
-            Table rel = auxIntervalList2.get(t);
-            if(nt - t >= interval.lower()){
-                bigUnion.addAll(rel);
-            }
-        }
-        msaux = new HashMap<>(auxIntervalList2);
-        return bigUnion;
+        cleanUpDatastructures();
+        updatedTP2 = false;
     }
-
-
-    public HashMap<Long, Table> mbuf2t_take(Mbuf2take_function func,
-                                            HashMap<Long, Table> z,
-                                            Long currentTimepoint){
-        if(mbuf2.fst().containsKey(currentTimepoint) && mbuf2.snd().containsKey(currentTimepoint) &&
-                terminLeft.contains(currentTimepoint) && terminRight.contains(currentTimepoint)){
-            Table x = mbuf2.fst().get(currentTimepoint);
-            Table y = mbuf2.snd().get(currentTimepoint);
-            HashMap<Long, Table> mbuf2t_output = func.run(x,y,currentTimepoint,z);
-            currentTimepoint++;
-            return mbuf2t_take(func, mbuf2t_output, currentTimepoint);
-        }
-        else{
-            return z;
-        }
-    }
-
     private void outputTerminators() {
+        //
     }
 
     public void cleanUpDatastructures(){
@@ -392,12 +265,6 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
         timestampToTimepoint.keySet().removeIf(ts -> ts < startEvalTimestamp);
     }
 
-}
-
-interface Mbuf2take_function{
-    HashMap<Long, Table> run(Table t1,
-                             Table t2,
-                             Long ts, HashMap<Long, Table> zs);
 }
 
 
