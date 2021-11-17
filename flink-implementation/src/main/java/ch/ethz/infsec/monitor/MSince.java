@@ -92,7 +92,7 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
         }
 
         if(event.isPresent()){
-            
+
             if(mbuf2.fst().containsKey(event.getTimepoint())){
                 mbuf2.fst().get(event.getTimepoint()).add(event.get());
             }else{
@@ -165,6 +165,7 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                     }
                 }
                 startEvalTimepoint = timestampToTimepoint.containsKey(nearest) ? timestampToTimepoint.get(nearest) : 0L;
+                outputTerminators(collector);
             }
         }
         cleanUpDatastructures();
@@ -248,16 +249,36 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                     }
                 }
                 startEvalTimepoint = timestampToTimepoint.containsKey(nearest) ? timestampToTimepoint.get(nearest) : 0L;
+                outputTerminators(collector);
             }
         }
         cleanUpDatastructures();
         updatedTP2 = false;
     }
-    private void outputTerminators() {
-        //
+
+    private void outputTerminators(Collector<PipelineEvent> collector) {
+        Integer numberProcessors1 = this.formula1.getNumberProcessors();
+        this.terminLeft.forEach(tp -> {
+            if (tp <= this.largestInOrderTP) {
+                for (Integer i = 0; i < numberProcessors1; i++) {
+                    collector.collect(new PipelineEvent(this.timepointToTimestamp.get(tp), tp, true, null));
+                }
+            }
+        });
+        this.terminLeft.removeIf(tp -> tp <= this.largestInOrderTP);
+
+        Integer numberProcessors2 = this.formula2.getNumberProcessors();
+        this.terminRight.forEach(tp -> {
+            if (tp <= this.largestInOrderTP) {
+                for (Integer i = 0; i < numberProcessors2; i++) {
+                    collector.collect(new PipelineEvent(this.timepointToTimestamp.get(tp), tp, true, null));
+                }
+            }
+        });
+        this.terminRight.removeIf(tp -> tp <= this.largestInOrderTP);
     }
 
-    public void cleanUpDatastructures(){
+    private void cleanUpDatastructures(){
         mbuf2.fst.keySet().removeIf(tp -> tp < startEvalTimepoint);
         mbuf2.snd.keySet().removeIf(tp -> tp < startEvalTimepoint);
         satisfactions.keySet().removeIf(tp -> tp < startEvalTimepoint);
