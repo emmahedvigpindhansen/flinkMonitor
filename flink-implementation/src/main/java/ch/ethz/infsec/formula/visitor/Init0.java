@@ -30,7 +30,6 @@ public class Init0 implements FormulaVisitor<Mformula> {
 
 
     public Mformula visit(JavaNot<VariableID> f) {
-        List<VariableID> keys = JavaConversions.seqAsJavaList(f.arg().freeVariablesInOrder());
         // check that this is the right way to handle keys in Not case
         if(f.arg() instanceof JavaOr){
             if(((JavaOr<VariableID>) f.arg()).arg1() instanceof JavaNot){
@@ -39,11 +38,11 @@ public class Init0 implements FormulaVisitor<Mformula> {
                 boolean isSubset = freeVarsInOrder1.containsAll(freeVarsInOrder2);
                 if(isSubset && safe_formula(((JavaOr<VariableID>) f.arg()).arg2())){
                     return new MAnd((((JavaOr<VariableID>)f.arg()).arg1()).accept(new Init0(this.fvio)),
-                            false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)), keys);
+                            false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)), null);
                 }else{
                     if(((JavaOr<VariableID>)f.arg()).arg2() instanceof JavaNot){
                         return new MAnd((((JavaOr<VariableID>)f.arg()).arg1()).accept(new Init0(this.fvio)),
-                                false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)), keys);
+                                false, (((JavaOr<VariableID>) f.arg()).arg2()).accept(new Init0(this.fvio)), null);
                     }else{
                         return null;
                     }
@@ -61,19 +60,21 @@ public class Init0 implements FormulaVisitor<Mformula> {
     public Mformula visit(JavaAnd<VariableID> f) {
         JavaGenFormula<VariableID> arg1 = f.arg1();
         JavaGenFormula<VariableID> arg2 = f.arg2();
-        // get common free vars to use in keyed stream
-        List<VariableID> keys = JavaConversions.seqAsJavaList(f.arg1().freeVariablesInOrder());
+
+        // get common vars to use in keyed stream
+        List<VariableID> keys1 = JavaConversions.seqAsJavaList(f.arg1().freeVariablesInOrder());
         List<VariableID> keys2 = JavaConversions.seqAsJavaList(f.arg2().freeVariablesInOrder());
-        List<VariableID> commonKeys = keys.stream().filter(keys2::contains).collect(Collectors.toList());
+        List<VariableID> commonKeys = keys1.stream().filter(keys2::contains).collect(Collectors.toList());
+        Integer indexOfCommonKey = !commonKeys.isEmpty() ? this.freeVariablesInOrder.indexOf(commonKeys.get(0)) : null;
 
         if(safe_formula(arg2)){
-            return new MAnd(arg1.accept(new Init0(this.fvio)), true, arg2.accept(new Init0(this.fvio)), commonKeys);
+            return new MAnd(arg1.accept(new Init0(this.fvio)), true, arg2.accept(new Init0(this.fvio)), indexOfCommonKey);
         }else{
             ArrayList<Object> freeVarsInOrder1 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
             ArrayList<Object> freeVarsInOrder2 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
             boolean isSubset = freeVarsInOrder1.containsAll(freeVarsInOrder2);
             if(arg2 instanceof JavaNot && isSubset){
-                return new MAnd(arg1.accept(new Init0(this.fvio)), false, arg2.accept(new Init0(this.fvio)), commonKeys);
+                return new MAnd(arg1.accept(new Init0(this.fvio)), false, arg2.accept(new Init0(this.fvio)), indexOfCommonKey);
             }else{
                 return null;
             }
@@ -108,8 +109,13 @@ public class Init0 implements FormulaVisitor<Mformula> {
     }
 
     public Mformula visit(JavaOr<VariableID> f) {
+        // get common vars to use in keyed stream
+        List<VariableID> keys1 = JavaConversions.seqAsJavaList(f.arg1().freeVariablesInOrder());
+        List<VariableID> keys2 = JavaConversions.seqAsJavaList(f.arg2().freeVariablesInOrder());
+        List<VariableID> commonKeys = keys1.stream().filter(keys2::contains).collect(Collectors.toList());
+        Integer indexOfCommonKey = !commonKeys.isEmpty() ? this.freeVariablesInOrder.indexOf(commonKeys.get(0)) : null;
         return new MOr((f.arg1()).accept(new Init0(this.fvio)),
-                (f.arg2()).accept(new Init0(this.fvio)));
+                (f.arg2()).accept(new Init0(this.fvio)), indexOfCommonKey);
     }
 
     public Mformula visit(JavaPrev<VariableID> f) {
@@ -119,17 +125,25 @@ public class Init0 implements FormulaVisitor<Mformula> {
 
     public Mformula visit(JavaSince<VariableID> f) {
 
+        // get common vars to use in keyed stream
+        List<VariableID> keys1 = JavaConversions.seqAsJavaList(f.arg1().freeVariablesInOrder());
+        List<VariableID> keys2 = JavaConversions.seqAsJavaList(f.arg2().freeVariablesInOrder());
+        List<VariableID> commonKeys = keys1.stream().filter(keys2::contains).collect(Collectors.toList());
+        Integer indexOfCommonKey = !commonKeys.isEmpty() ? this.freeVariablesInOrder.indexOf(commonKeys.get(0)) : null;
+
         if(safe_formula(f.arg1())){
             return new MSince(true,
                     (f.arg1()).accept(new Init0(this.fvio)),
                     f.interval(),
-                    (f.arg2()).accept(new Init0(this.fvio)));
+                    (f.arg2()).accept(new Init0(this.fvio)),
+                    indexOfCommonKey);
         }else{
             if((f.arg1()) instanceof JavaNot){
                 return new MSince(false,
                         (f.arg1()).accept(new Init0(this.fvio)),
                         f.interval(),
-                        (f.arg2()).accept(new Init0(this.fvio)));
+                        (f.arg2()).accept(new Init0(this.fvio)),
+                        indexOfCommonKey);
             }else{
                 return null;
             }
@@ -139,17 +153,25 @@ public class Init0 implements FormulaVisitor<Mformula> {
 
     public Mformula visit(JavaUntil<VariableID> f) {
 
+        // get common vars to use in keyed stream
+        List<VariableID> keys1 = JavaConversions.seqAsJavaList(f.arg1().freeVariablesInOrder());
+        List<VariableID> keys2 = JavaConversions.seqAsJavaList(f.arg2().freeVariablesInOrder());
+        List<VariableID> commonKeys = keys1.stream().filter(keys2::contains).collect(Collectors.toList());
+        Integer indexOfCommonKey = !commonKeys.isEmpty() ? this.freeVariablesInOrder.indexOf(commonKeys.get(0)) : null;
+
         if(safe_formula(f.arg1())){
             return new MUntil(true,
                     (f.arg1()).accept(new Init0(this.fvio)),
                     f.interval(),
-                    (f.arg2()).accept(new Init0(this.fvio)));
+                    (f.arg2()).accept(new Init0(this.fvio)),
+                    indexOfCommonKey);
         }else{
             if((f.arg1()) instanceof JavaNot){
                 return new MUntil(false,
                         (f.arg1()).accept(new Init0(this.fvio)),
                         f.interval(),
-                        (f.arg2()).accept(new Init0(this.fvio)));
+                        (f.arg2()).accept(new Init0(this.fvio)),
+                        indexOfCommonKey);
             }else{
                 return null;
             }
