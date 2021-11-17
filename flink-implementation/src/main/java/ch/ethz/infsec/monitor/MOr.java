@@ -14,13 +14,15 @@ public class MOr implements Mformula, CoFlatMapFunction<PipelineEvent, PipelineE
 
     public Mformula op1;
     public Mformula op2;
+    public Integer indexOfCommonKey;
     HashSet<Long> terminatorLHS;
     HashSet<Long> terminatorRHS;
     Integer numberProcessors;
 
-    public MOr(Mformula arg1, Mformula arg2) {
+    public MOr(Mformula arg1, Mformula arg2, Integer indexOfCommonKey) {
         op1 = arg1;
         op2 = arg2;
+        this.indexOfCommonKey = indexOfCommonKey;
 
         terminatorLHS = new HashSet<>();
         terminatorRHS = new HashSet<>();

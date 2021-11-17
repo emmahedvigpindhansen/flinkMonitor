@@ -16,7 +16,7 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
     boolean bool;
     public Mformula op1;
     public Mformula op2;
-    public List<VariableID> keys;
+    public Integer indexOfCommonKey;
     Tuple<HashMap<Long, Table>,HashMap<Long, Table>> mbuf2;
     HashSet<Long> terminatorLHS;
     HashSet<Long> terminatorRHS;
@@ -25,11 +25,11 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
     Integer numberProcessors;
 
 
-    public MAnd(Mformula arg1, boolean bool, Mformula arg2, List<VariableID> keys) {
+    public MAnd(Mformula arg1, boolean bool, Mformula arg2, Integer indexOfCommonKey) {
         this.bool = bool;
         this.op1 = arg1;
         this.op2 = arg2;
-        this.keys = keys;
+        this.indexOfCommonKey = indexOfCommonKey;
 
         this.mbuf2 = new Tuple<>(new HashMap<>(), new HashMap<>());
         terminatorLHS = new HashSet<>();

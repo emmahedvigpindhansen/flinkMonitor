@@ -50,16 +50,12 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         // so that next MFormula knows how many terminators to wait for
         f.setNumberProcessors(Main.numberProcessors * 2);
 
-        // get common keys
-        // List<VariableID> commonKeys = f.keys;
-        // what if no common keys?
-
         // flatmap to duplicate terminators and set key of events
         DataStream<PipelineEvent> input1duplicated = input1
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, true))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, f.indexOfCommonKey))
                 .setParallelism(1);
         DataStream<PipelineEvent> input2duplicated = input2
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, true))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, f.indexOfCommonKey))
                 .setParallelism(1);
         // partition data
         ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1duplicated.partitionCustom(new Partitioner<Integer>() {
@@ -91,7 +87,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         f.setNumberProcessors(Main.numberProcessors);
         // duplicate terminators
         DataStream<PipelineEvent> inputduplicated = input
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, false))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, null))
                 .setParallelism(1);
         // partition data
         DataStream<PipelineEvent> partitioned = inputduplicated.partitionCustom(new Partitioner<Integer>() {
@@ -113,7 +109,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         f.setNumberProcessors(Main.numberProcessors);
         // duplicate terminators
         DataStream<PipelineEvent> inputduplicated = input
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, false))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors,  null))
                 .setParallelism(1);
         // partition data
         DataStream<PipelineEvent> partitioned = inputduplicated.partitionCustom(new Partitioner<Integer>() {
@@ -138,15 +134,12 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         // so that next MFormula knows how many terminators to wait for
         f.setNumberProcessors(Main.numberProcessors * 2);
 
-        // get common keys
-        // List<VariableID> commonKeys = f.keys;
-
         // flatmap to duplicate terminators and set key of events
         DataStream<PipelineEvent> input1duplicated = input1
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, false))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, f.indexOfCommonKey))
                 .setParallelism(1);
         DataStream<PipelineEvent> input2duplicated = input2
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, false))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, f.indexOfCommonKey))
                 .setParallelism(1);
         // partition data
         ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1duplicated.partitionCustom(new Partitioner<Integer>() {
@@ -178,7 +171,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         f.setNumberProcessors(Main.numberProcessors);
         // duplicate terminators
         DataStream<PipelineEvent> inputduplicated = input
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, false))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, null))
                 .setParallelism(1);
         // partition data
         DataStream<PipelineEvent> partitioned = inputduplicated.partitionCustom(new Partitioner<Integer>() {
@@ -208,10 +201,10 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
 
         // flatmap to duplicate terminators and set key of events
         DataStream<PipelineEvent> input1duplicated = input1
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, true))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, f.indexOfCommonKey))
                 .setParallelism(1);
         DataStream<PipelineEvent> input2duplicated = input2
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, true))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, f.indexOfCommonKey))
                 .setParallelism(1);
         // partition data
         ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1duplicated.partitionCustom(new Partitioner<Integer>() {
@@ -251,10 +244,10 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
 
         // flatmap to duplicate terminators and set key of events
         DataStream<PipelineEvent> input1duplicated = input1
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, true))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, f.indexOfCommonKey))
                 .setParallelism(1);
         DataStream<PipelineEvent> input2duplicated = input2
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, true))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, f.indexOfCommonKey))
                 .setParallelism(1);
         // partition data
         ConnectedStreams<PipelineEvent, PipelineEvent> connectedStreams = input1duplicated.partitionCustom(new Partitioner<Integer>() {
@@ -287,7 +280,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         f.setNumberProcessors(Main.numberProcessors);
         // duplicate terminators
         DataStream<PipelineEvent> inputduplicated = input
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, false))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, null))
                 .setParallelism(1);
         // partition data
         DataStream<PipelineEvent> partitioned = inputduplicated.partitionCustom(new Partitioner<Integer>() {
@@ -310,7 +303,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         f.setNumberProcessors(Main.numberProcessors);
         // duplicate terminators
         DataStream<PipelineEvent> inputduplicated = input
-                .flatMap(new DuplicateTerminators(Main.numberProcessors, false))
+                .flatMap(new DuplicateTerminators(Main.numberProcessors, null))
                 .setParallelism(1);
         // partition data
         DataStream<PipelineEvent> partitioned = inputduplicated.partitionCustom(new Partitioner<Integer>() {

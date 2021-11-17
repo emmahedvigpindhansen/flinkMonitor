@@ -17,6 +17,7 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     public Mformula formula1;
     ch.ethz.infsec.policy.Interval interval;
     public Mformula formula2;
+    public Integer indexOfCommonKey;
     Tuple<HashMap<Long, Table>, HashMap<Long, Table>> mbuf2;
     HashMap<Long, Tuple<Table, Table>> muaux;
     Long startEvalMuauxTP;
@@ -36,12 +37,13 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     Integer numberProcessors;
 
     public MUntil(boolean b, Mformula accept, ch.ethz.infsec.policy.Interval interval,
-                  Mformula accept1) {
+                  Mformula accept1, Integer indexOfCommonKey) {
         this.pos = b;
         this.formula1 = accept;
         this.formula2 = accept1;
         this.interval = interval;
         this.muaux = new HashMap<>();
+        this.indexOfCommonKey = indexOfCommonKey;
         startEvalMuauxTP = -1L;
 
         this.timepointToTimestamp = new HashMap<>();

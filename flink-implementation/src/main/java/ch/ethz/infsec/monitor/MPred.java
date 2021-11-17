@@ -31,7 +31,7 @@ public final class MPred implements Mformula, FlatMapFunction<Fact, PipelineEven
             argsJava.add(convert(variableIDTerm));
         }
         this.predName = predName;
-        this.freeVariablesInOrder = fvio.stream().distinct().collect(Collectors.toList());
+        this.freeVariablesInOrder = fvio;
         this.args = argsJava;
     }
 
@@ -51,16 +51,11 @@ public final class MPred implements Mformula, FlatMapFunction<Fact, PipelineEven
 
     public void flatMap(Fact fact, Collector<PipelineEvent> out) throws Exception {
 
-        // System.out.println(fact.toString());
-
         if(fact.isTerminator()){
             PipelineEvent terminator = PipelineEvent.terminator(fact.getTimestamp(),fact.getTimepoint());
-            // terminator.key = this.freeVariablesInOrder;
-            // terminator.key = new ArrayList<VariableID>();
-            // terminator.key.add(this.freeVariablesInOrder.get(0));
             out.collect(terminator);
         }else{
-            assert(fact.getName().equals(this.predName) );
+            assert(fact.getName().equals(this.predName));
 
             ArrayList<JavaTerm<VariableID>> argsFormula = new ArrayList<>(this.args);
 
@@ -71,17 +66,14 @@ public final class MPred implements Mformula, FlatMapFunction<Fact, PipelineEven
             Optional<HashMap<VariableID, Optional<Object>>> result = matchFV(argsFormula, argsEvent);
             if(result.isPresent()){
                 Assignment list = new Assignment();
-                List<VariableID> keys = new ArrayList<VariableID>();
                 for (VariableID formulaVariable : this.freeVariablesInOrder) {
                     if(!result.get().containsKey(formulaVariable) || !result.get().get(formulaVariable).isPresent()){
                         list.addLast(Optional.empty());
                     }else{
                         list.addLast(result.get().get(formulaVariable));
-                        keys.add(formulaVariable);
                     }
                 }
                 PipelineEvent event = PipelineEvent.event(fact.getTimestamp(),fact.getTimepoint(), list);
-                // event.key = keys;
                 out.collect(event);
             }
             //if there are no satisfactions, we simply don't put anything to the collector.
@@ -105,7 +97,6 @@ public final class MPred implements Mformula, FlatMapFunction<Fact, PipelineEven
             if(ts.size() > 0 && ys.size() > 0 && (ts.get(0) instanceof JavaConst)) {
 
                 if(ts.get(0).toString().equals(ys.get(0).toString())) {
-
                     JavaTerm<VariableID> t = ts.remove(0); //from formula
                     Object y = ys.remove(0); //from fact
                     Optional<HashMap<VariableID, Optional<Object>>> partialResult =  matchFV(ts, ys);

@@ -14,6 +14,7 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     public Mformula formula1; //left subformula
     ch.ethz.infsec.policy.Interval interval;
     public Mformula formula2; //right subformula
+    public Integer indexOfCommonKey;
     Tuple<HashMap<Long, Table>, HashMap<Long, Table>> mbuf2; //"buf" in Verimon
 
     //List<Long> tsList; //"nts" in Verimon
@@ -40,11 +41,12 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     Boolean updatedTP2 = false;
 
 
-    public MSince(boolean b, Mformula accept, ch.ethz.infsec.policy.Interval interval, Mformula accept1) {
+    public MSince(boolean b, Mformula accept, ch.ethz.infsec.policy.Interval interval, Mformula accept1, Integer indexOfCommonKey) {
         this.pos = b;
         this.formula1 = accept;
         this.formula2 = accept1;
         this.interval = interval;
+        this.indexOfCommonKey = indexOfCommonKey;
 
         this.msaux = new HashMap<>();
         this.satisfactions = new HashMap<>();
