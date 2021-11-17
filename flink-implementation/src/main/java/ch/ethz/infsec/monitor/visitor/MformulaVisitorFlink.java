@@ -65,7 +65,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
             }}, new KeySelector<PipelineEvent, Integer>() {
                     @Override
                     public Integer getKey(PipelineEvent event) throws Exception {
-                        return event.key;
+                        return event.getKey();
                     }
                 })
                 .connect(
@@ -76,7 +76,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                     }}, new KeySelector<PipelineEvent, Integer>() {
                     @Override
                     public Integer getKey(PipelineEvent event) throws Exception {
-                        return event.key;
+                        return event.getKey();
                     }
                 }));
         return connectedStreams.flatMap(f).setParallelism(Main.numberProcessors);
@@ -98,7 +98,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         }, new KeySelector<PipelineEvent, Integer>() {
             @Override
             public Integer getKey(PipelineEvent event) throws Exception {
-                return event.key;
+                return event.getKey();
             }
         });
         return partitioned.flatMap(f).setParallelism(Main.numberProcessors);
@@ -120,7 +120,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         }, new KeySelector<PipelineEvent, Integer>() {
             @Override
             public Integer getKey(PipelineEvent event) throws Exception {
-                return event.key;
+                return event.getKey();
             }
         });
         return partitioned.flatMap(f).setParallelism(Main.numberProcessors);
@@ -149,7 +149,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                     }}, new KeySelector<PipelineEvent, Integer>() {
                     @Override
                     public Integer getKey(PipelineEvent event) throws Exception {
-                        return event.key;
+                        return event.getKey();
                     }
                 })
                 .connect(
@@ -160,7 +160,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                             }}, new KeySelector<PipelineEvent, Integer>() {
                             @Override
                             public Integer getKey(PipelineEvent event) throws Exception {
-                                return event.key;
+                                return event.getKey();
                             }
                         }));
         return connectedStreams.flatMap(f).setParallelism(Main.numberProcessors);
@@ -182,7 +182,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         }, new KeySelector<PipelineEvent, Integer>() {
             @Override
             public Integer getKey(PipelineEvent event) throws Exception {
-                return event.key;
+                return event.getKey();
             }
         });
         return partitioned.flatMap(f).setParallelism(Main.numberProcessors);
@@ -214,7 +214,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                     }}, new KeySelector<PipelineEvent, Integer>() {
                     @Override
                     public Integer getKey(PipelineEvent event) throws Exception {
-                        return event.key;
+                        return event.getKey();
                     }
                 })
                 .connect(
@@ -225,7 +225,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                             }}, new KeySelector<PipelineEvent, Integer>() {
                             @Override
                             public Integer getKey(PipelineEvent event) throws Exception {
-                                return event.key;
+                                return event.getKey();
                             }
                         }));
         return connectedStreams.flatMap(f).setParallelism(Main.numberProcessors);
@@ -257,7 +257,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                     }}, new KeySelector<PipelineEvent, Integer>() {
                     @Override
                     public Integer getKey(PipelineEvent event) throws Exception {
-                        return event.key;
+                        return event.getKey();
                     }
                 })
                 .connect(
@@ -268,7 +268,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
                             }}, new KeySelector<PipelineEvent, Integer>() {
                             @Override
                             public Integer getKey(PipelineEvent event) throws Exception {
-                                return event.key;
+                                return event.getKey();
                             }
                         }));
         return connectedStreams.flatMap(f).setParallelism(Main.numberProcessors);
@@ -291,7 +291,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         }, new KeySelector<PipelineEvent, Integer>() {
             @Override
             public Integer getKey(PipelineEvent event) throws Exception {
-                return event.key;
+                return event.getKey();
             }
         });
         return partitioned.flatMap(f).setParallelism(Main.numberProcessors);
@@ -314,7 +314,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         }, new KeySelector<PipelineEvent, Integer>() {
             @Override
             public Integer getKey(PipelineEvent event) throws Exception {
-                return event.key;
+                return event.getKey();
             }
         });
         return partitioned.flatMap(f).setParallelism(Main.numberProcessors);

@@ -14,8 +14,7 @@ public class PipelineEvent implements Serializable {
     private final long timepoint;
     private final boolean isTerminator;
     private final Assignment assignment;
-    public List<VariableID> key;
-    public int terminatorKey;
+    int key;
 
 
     public PipelineEvent(long timestamp, long timepoint, boolean isTerminator, Assignment assignment) {
@@ -50,6 +49,10 @@ public class PipelineEvent implements Serializable {
     public long getTimepoint(){
         return this.timepoint;
     }
+
+    public int getKey() {return this.key;}
+
+    public void setKey(int key) {this.key = key;}
 
     @Override
     public boolean equals(Object o){

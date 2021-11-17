@@ -7,12 +7,12 @@ import java.util.concurrent.ThreadLocalRandom;
 public class DuplicateTerminators implements FlatMapFunction<PipelineEvent, PipelineEvent> {
 
     int numberProcessors;
-    boolean sameProcessor;
     int randomNumberSameProcessor;
+    Integer indexOfCommonKeys;
 
-    public DuplicateTerminators(int numberProcessors, boolean sameProcessor) {
+    public DuplicateTerminators(int numberProcessors, Integer indexOfCommonKeys) {
         this.numberProcessors = numberProcessors;
-        this.sameProcessor = sameProcessor;
+        this.indexOfCommonKeys = indexOfCommonKeys;
         this.randomNumberSameProcessor = ThreadLocalRandom.current().nextInt(0, this.numberProcessors);
     }
 
@@ -22,16 +22,17 @@ public class DuplicateTerminators implements FlatMapFunction<PipelineEvent, Pipe
         if (!event.isPresent()) {
             for (int i = 0; i < this.numberProcessors; i++) {
                 PipelineEvent temp = new PipelineEvent(event.getTimestamp(), event.getTimepoint(), true, event.get());
-                temp.key = i; // change to temp.SetKey(i) in PipelineEvent
+                temp.setKey(i);
                 out.collect(temp);
             }
         } else {
-            if (sameProcessor) {
-                event.key = this.randomNumberSameProcessor;
+            if (indexOfCommonKeys != null) {
+                int key = Integer.parseInt(event.get().get(this.indexOfCommonKeys).get().toString()) % numberProcessors;
+                event.setKey(key);
             }
             else {
                 int randomNum = ThreadLocalRandom.current().nextInt(0, this.numberProcessors);
-                event.key = randomNum;
+                event.setKey(randomNum);
             }
             out.collect(event);
         }
