@@ -259,22 +259,16 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     }
 
     private void outputTerminators(Collector<PipelineEvent> collector) {
-        Integer numberProcessors1 = this.formula1.getNumberProcessors();
         this.terminLeft.forEach(tp -> {
             if (tp <= this.largestInOrderTP) {
-                for (Integer i = 0; i < numberProcessors1; i++) {
-                    collector.collect(new PipelineEvent(this.timepointToTimestamp.get(tp), tp, true, null));
-                }
+                collector.collect(new PipelineEvent(this.timepointToTimestamp.get(tp), tp, true, null));
             }
         });
         this.terminLeft.removeIf(tp -> tp <= this.largestInOrderTP);
 
-        Integer numberProcessors2 = this.formula2.getNumberProcessors();
         this.terminRight.forEach(tp -> {
             if (tp <= this.largestInOrderTP) {
-                for (Integer i = 0; i < numberProcessors2; i++) {
-                    collector.collect(new PipelineEvent(this.timepointToTimestamp.get(tp), tp, true, null));
-                }
+                collector.collect(new PipelineEvent(this.timepointToTimestamp.get(tp), tp, true, null));
             }
         });
         this.terminRight.removeIf(tp -> tp <= this.largestInOrderTP);

@@ -45,10 +45,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
     public DataStream<PipelineEvent> visit(MAnd f) {
         DataStream<PipelineEvent> input1 = f.op1.accept(this);
         DataStream<PipelineEvent> input2 = f.op2.accept(this);
-
-        // as this MFormula is binary (each operator receives 2 streams), we need to multiply numberProcessors with 2
-        // so that next MFormula knows how many terminators to wait for
-        f.setNumberProcessors(Main.numberProcessors * 2);
+        f.setNumberProcessors(Main.numberProcessors);
 
         // flatmap to duplicate terminators and set key of events
         DataStream<PipelineEvent> input1duplicated = input1
@@ -130,9 +127,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
         DataStream<PipelineEvent> input1 = f.op1.accept(this);
         DataStream<PipelineEvent> input2 = f.op2.accept(this);
 
-        // as this MFormula is binary (each operator receives 2 streams), we need to multiply numberProcessors with 2
-        // so that next MFormula knows how many terminators to wait for
-        f.setNumberProcessors(Main.numberProcessors * 2);
+        f.setNumberProcessors(Main.numberProcessors);
 
         // flatmap to duplicate terminators and set key of events
         DataStream<PipelineEvent> input1duplicated = input1
@@ -191,13 +186,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
     public DataStream<PipelineEvent> visit(MSince f) {
         DataStream<PipelineEvent> input1 = f.formula1.accept(this);
         DataStream<PipelineEvent> input2 = f.formula2.accept(this);
-
-        // as this MFormula is binary (each operator receives 2 streams), we need to multiply numberProcessors with 2
-        // so that next MFormula knows how many terminators to wait for
-        f.setNumberProcessors(Main.numberProcessors * 2);
-
-        // get common keys
-        // List<VariableID> commonKeys = f.keys;
+        f.setNumberProcessors(Main.numberProcessors);
 
         // flatmap to duplicate terminators and set key of events
         DataStream<PipelineEvent> input1duplicated = input1
@@ -234,13 +223,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
     public DataStream<PipelineEvent> visit(MUntil f) {
         DataStream<PipelineEvent> input1 = f.formula1.accept(this);
         DataStream<PipelineEvent> input2 = f.formula2.accept(this);
-
-        // as this MFormula is binary (each operator receives 2 streams), we need to multiply numberProcessors with 2
-        // so that next MFormula knows how many terminators to wait for
-        f.setNumberProcessors(Main.numberProcessors * 2);
-
-        // get common keys
-        // List<VariableID> commonKeys = f.keys;
+        f.setNumberProcessors(Main.numberProcessors);
 
         // flatmap to duplicate terminators and set key of events
         DataStream<PipelineEvent> input1duplicated = input1

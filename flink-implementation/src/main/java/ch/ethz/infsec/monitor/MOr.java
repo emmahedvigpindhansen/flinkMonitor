@@ -17,6 +17,8 @@ public class MOr implements Mformula, CoFlatMapFunction<PipelineEvent, PipelineE
     public Integer indexOfCommonKey;
     HashSet<Long> terminatorLHS;
     HashSet<Long> terminatorRHS;
+    HashMap<Long, Integer> terminatorCount1;
+    HashMap<Long, Integer> terminatorCount2;
     Integer numberProcessors;
 
     public MOr(Mformula arg1, Mformula arg2, Integer indexOfCommonKey) {
@@ -26,6 +28,8 @@ public class MOr implements Mformula, CoFlatMapFunction<PipelineEvent, PipelineE
 
         terminatorLHS = new HashSet<>();
         terminatorRHS = new HashSet<>();
+        this.terminatorCount1 = new HashMap<>();
+        this.terminatorCount2 = new HashMap<>();
     }
 
     @Override
@@ -44,36 +48,54 @@ public class MOr implements Mformula, CoFlatMapFunction<PipelineEvent, PipelineE
     }
 
     @Override
-    public void flatMap1(PipelineEvent fact, Collector<PipelineEvent> collector) throws Exception {
+    public void flatMap1(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
         //here we have a streaming implementation. We can produce an output potentially for every event.
         //We don't buffer events until we receive a terminator event, contrary to what the Verimon algorithm does.
-        if(!fact.isPresent()){
-            terminatorLHS.add(fact.getTimepoint());
-            if(terminatorRHS.contains(fact.getTimepoint())){
-                collector.collect(fact);
-                terminatorRHS.remove(fact.getTimepoint());
-                terminatorLHS.remove(fact.getTimepoint());
+        if(!event.isPresent()){
+            if (!terminatorCount1.containsKey(event.getTimepoint())) {
+                terminatorCount1.put(event.getTimepoint(), 1);
+            } else {
+                terminatorCount1.put(event.getTimepoint(), terminatorCount1.get(event.getTimepoint()) + 1);
+            }
+            // only add terminator to LHS when received correct amount
+            if (terminatorCount1.containsKey(event.getTimepoint())) {
+                if (terminatorCount1.get(event.getTimepoint()).equals(this.op1.getNumberProcessors())) {
+                    terminatorLHS.add(event.getTimepoint());
+                }
+            }
+            if(terminatorRHS.contains(event.getTimepoint())){
+                collector.collect(event);
+                // terminatorRHS.remove(event.getTimepoint());
+                // terminatorLHS.remove(event.getTimepoint());
             }
         }else{
-            collector.collect(fact);
-
+            collector.collect(event);
         }
-
     }
 
     @Override
-    public void flatMap2(PipelineEvent fact, Collector<PipelineEvent> collector) throws Exception {
-        //one terminator fact will be sent out only once it is received on both incoming streams
-        if(!fact.isPresent()){
-            terminatorRHS.add(fact.getTimepoint());
-            if(terminatorLHS.contains(fact.getTimepoint())){
-                collector.collect(fact);
-                terminatorRHS.remove(fact.getTimepoint());
-                terminatorLHS.remove(fact.getTimepoint());
+    public void flatMap2(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
+        //one terminator event will be sent out only once it is received on both incoming streams
+        if(!event.isPresent()){
+            if (!terminatorCount2.containsKey(event.getTimepoint())) {
+                terminatorCount2.put(event.getTimepoint(), 1);
+            } else {
+                terminatorCount2.put(event.getTimepoint(), terminatorCount2.get(event.getTimepoint()) + 1);
+            }
+
+            // only add terminator to RHS when received correct amount
+            if (terminatorCount2.containsKey(event.getTimepoint())) {
+                if (terminatorCount2.get(event.getTimepoint()).equals(this.op2.getNumberProcessors())) {
+                    terminatorRHS.add(event.getTimepoint());
+                }
+            }
+            if(terminatorLHS.contains(event.getTimepoint())){
+                collector.collect(event);
+                // terminatorRHS.remove(event.getTimepoint());
+                // terminatorLHS.remove(event.getTimepoint());
             }
         }else{
-            collector.collect(fact);
-
+            collector.collect(event);
         }
     }
 
