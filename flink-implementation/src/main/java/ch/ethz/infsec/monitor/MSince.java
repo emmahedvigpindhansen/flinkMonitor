@@ -26,8 +26,8 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     Long largestInOrderTPsub2;
     Long largestInOrderTP;
     Long largestInOrderTS;
-    HashSet<Long> terminLeft;
-    HashSet<Long> terminRight;
+    HashMap<Long, Long> terminLeft;
+    HashMap<Long, Long> terminRight;
     HashMap<Long, Integer> terminatorCount1;
     HashMap<Long, Integer> terminatorCount2;
 
@@ -59,8 +59,8 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
         HashMap<Long, Table> fst = new HashMap<>();
         HashMap<Long, Table> snd = new HashMap<>();
         this.mbuf2 = new Tuple<>(fst, snd);
-        this.terminLeft = new HashSet<>();
-        this.terminRight = new HashSet<>();
+        this.terminLeft = new HashMap<>();
+        this.terminRight = new HashMap<>();
         largestInOrderTP = -1L;
         largestInOrderTS = -1L;
         this.terminatorCount1 = new HashMap<>();
@@ -143,15 +143,17 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             } else {
                 terminatorCount1.put(event.getTimepoint(), terminatorCount1.get(event.getTimepoint()) + 1);
             }
-            if (!terminLeft.contains(event.getTimepoint())) {
-                terminLeft.add(event.getTimepoint());
+            // only add terminator when received correct amount
+            if ((terminatorCount1.get(event.getTimepoint()).equals(this.formula1.getNumberProcessors()))) {
+                terminLeft.put(event.getTimepoint(), event.getTimestamp());
             }
             // update startEvalTimepoint in order to clean up datastructures
-            while(terminLeft.contains(largestInOrderTP + 1L) && terminRight.contains(largestInOrderTP + 1L)
-                    && (terminatorCount1.get(largestInOrderTP + 1L).equals(this.formula1.getNumberProcessors()))
-                    && (terminatorCount2.get(largestInOrderTP + 1L).equals(this.formula2.getNumberProcessors()))){
+            while(terminLeft.containsKey(largestInOrderTP + 1L) && terminRight.containsKey(largestInOrderTP + 1L)){
                 largestInOrderTP++;
                 updatedTP1 = true;
+                // output terminator
+                PipelineEvent terminator = PipelineEvent.terminator(terminLeft.get(largestInOrderTP), largestInOrderTP);
+                collector.collect(terminator);
             }
             if (largestInOrderTP > -1L && updatedTP1) {
                 largestInOrderTS = timepointToTimestamp.get(largestInOrderTP);
@@ -167,7 +169,6 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                     }
                 }
                 startEvalTimepoint = timestampToTimepoint.containsKey(nearest) ? timestampToTimepoint.get(nearest) : 0L;
-                outputTerminators(collector);
             }
         }
         cleanUpDatastructures();
@@ -227,14 +228,16 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             } else {
                 terminatorCount2.put(event.getTimepoint(), terminatorCount2.get(event.getTimepoint()) + 1);
             }
-            if(!terminRight.contains(event.getTimepoint())){
-                terminRight.add(event.getTimepoint());
+            // only add terminator when received correct amount
+            if ((terminatorCount2.get(event.getTimepoint()).equals(this.formula2.getNumberProcessors()))) {
+                terminRight.put(event.getTimepoint(), event.getTimestamp());
             }
             // update startEvalTimestamp in order to clean up datastructures
-            while (terminLeft.contains(largestInOrderTP + 1L) && terminRight.contains(largestInOrderTP + 1L)
-                    && (terminatorCount1.get(largestInOrderTP + 1L).equals(this.formula1.getNumberProcessors()))
-                    && (terminatorCount2.get(largestInOrderTP + 1L).equals(this.formula2.getNumberProcessors()))) {
+            while (terminLeft.containsKey(largestInOrderTP + 1L) && terminRight.containsKey(largestInOrderTP + 1L)) {
                 largestInOrderTP++;
+                // output terminator
+                PipelineEvent terminator = PipelineEvent.terminator(terminLeft.get(largestInOrderTP), largestInOrderTP);
+                collector.collect(terminator);
                 updatedTP2 = true;
             }
             if (largestInOrderTP > -1L && updatedTP2) {
@@ -251,27 +254,10 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                     }
                 }
                 startEvalTimepoint = timestampToTimepoint.containsKey(nearest) ? timestampToTimepoint.get(nearest) : 0L;
-                outputTerminators(collector);
             }
         }
         cleanUpDatastructures();
         updatedTP2 = false;
-    }
-
-    private void outputTerminators(Collector<PipelineEvent> collector) {
-        this.terminLeft.forEach(tp -> {
-            if (tp <= this.largestInOrderTP) {
-                collector.collect(new PipelineEvent(this.timepointToTimestamp.get(tp), tp, true, null));
-            }
-        });
-        this.terminLeft.removeIf(tp -> tp <= this.largestInOrderTP);
-
-        this.terminRight.forEach(tp -> {
-            if (tp <= this.largestInOrderTP) {
-                collector.collect(new PipelineEvent(this.timepointToTimestamp.get(tp), tp, true, null));
-            }
-        });
-        this.terminRight.removeIf(tp -> tp <= this.largestInOrderTP);
     }
 
     private void cleanUpDatastructures(){
@@ -280,6 +266,8 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
         satisfactions.keySet().removeIf(tp -> tp < startEvalTimepoint);
         timepointToTimestamp.keySet().removeIf(tp -> tp < startEvalTimepoint);
         timestampToTimepoint.keySet().removeIf(ts -> ts < startEvalTimestamp);
+        terminLeft.keySet().removeIf(tp -> tp < largestInOrderTP);
+        terminRight.keySet().removeIf(tp -> tp < largestInOrderTP);
     }
 
 }
