@@ -19,14 +19,12 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
     HashMap<Long, Long> terminators;
     Long largestInOrderTP;
     Long largestInOrderTS;
-    HashMap<Long, HashSet<Assignment>> outputted;
     Integer numberProcessors;
     HashMap<Long, Integer> terminatorCount;
 
     public MEventually(ch.ethz.infsec.policy.Interval interval, Mformula mform) {
         this.formula = mform;
         this.interval = interval;
-        outputted = new HashMap<>();
         this.buckets = new HashMap<>();
         this.timepointToTimestamp = new HashMap<>();
         this.terminators = new HashMap<>();
@@ -54,99 +52,68 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
     @Override
     public void flatMap(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
 
-        if(event.isPresent()){
-            if(!timepointToTimestamp.containsKey(event.getTimepoint())){
-                timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
-            }
+        if(!timepointToTimestamp.containsKey(event.getTimepoint())){
+            timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
+        }
+
+        if (event.isPresent()) {
+
             if(!buckets.containsKey(event.getTimepoint())){
-                HashSet<Assignment> set = new HashSet<>();
-                set.add(event.get());
-                buckets.put(event.getTimepoint(), set);
+                buckets.put(event.getTimepoint(), Table.one(event.get()));
             }else{
                 buckets.get(event.getTimepoint()).add(event.get());
             }
 
-        }else{
+        } else {
             if (!terminatorCount.containsKey(event.getTimepoint())) {
                 terminatorCount.put(event.getTimepoint(), 1);
             } else {
                 terminatorCount.put(event.getTimepoint(), terminatorCount.get(event.getTimepoint()) + 1);
             }
-            if(!terminators.containsKey(event.getTimepoint())){
+            // only add terminator when received correct amount
+            if ((terminatorCount.get(event.getTimepoint()).equals(this.formula.getNumberProcessors()))) {
                 terminators.put(event.getTimepoint(), event.getTimestamp());
-            }/*else{
-                throw new RuntimeException("cannot receive Terminator twice");
-            }*/
-            while(terminators.containsKey(largestInOrderTP + 1L)
-                    && (terminatorCount.get(largestInOrderTP + 1L).equals(this.formula.getNumberProcessors()))){
-                largestInOrderTP++;
-                largestInOrderTS = terminators.get(largestInOrderTP);
             }
         }
 
-        // EH :  should we wait to handle the event until received correct amount of terminators?
-        if(event.isPresent()){
+        if (event.isPresent()) {
             for(Long term : terminators.keySet()){
-                if(IntervalCondition.mem2(event.getTimestamp() - terminators.get(term) , interval)){
-                    out.collect(PipelineEvent.event(terminators.get(term), term, event.get()));
+                if(IntervalCondition.mem2(event.getTimestamp() - timepointToTimestamp.get(term) , interval)){
+                    PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
+                    out.collect(result);
                 }
             }
-        }else{
+        } else {
             Long termtp = event.getTimepoint();
             for(Long tp : buckets.keySet()){
-                if(IntervalCondition.mem2(timepointToTimestamp.get(tp) - terminators.get(termtp), interval)){
+                if(IntervalCondition.mem2(timepointToTimestamp.get(tp) - timepointToTimestamp.get(termtp), interval)){
                     HashSet<Assignment> satisfEvents = buckets.get(tp);
                     for(Assignment pe : satisfEvents){
-                            out.collect(PipelineEvent.event(terminators.get(termtp), termtp, pe));
+                        PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(termtp), termtp, pe);
+                        out.collect(result);
                     }
                 }
             }
-
-        }
-        handleBuffered(out);
-    }
-
-    // EH : no changes here bc we evaluate wrt largestInOrderTP which only updates when received correct amount of terminators
-    public void handleBuffered(Collector collector){
-        HashSet<Long> toRemove = new HashSet<>();
-        HashSet<Long> toRemoveTPTS = new HashSet<>();
-        HashSet<Long> toRemoveBuckets = new HashSet<>();
-
-        Set<Long> termsCopy = new HashSet<>(terminators.keySet());
-        for(Long term : termsCopy){
-
-            if(terminators.containsKey(term) && terminators.get(term).intValue() + interval.lower() <= largestInOrderTS.intValue() &&
-                    interval.upper().isDefined()
-                    && terminators.get(term).intValue() + (int)interval.upper().get() <= largestInOrderTS.intValue()){
-                collector.collect(PipelineEvent.terminator(terminators.get(term), term));
-                //terminators.remove(term);
-                toRemove.add(term);
-            }
-
-        }
-        for(Long tp : toRemove){
-            terminators.remove(tp);
-        }
-
-        Set<Long> bucketsCopy = new HashSet<>(buckets.keySet());
-        for(Long buc : bucketsCopy){
-            if(interval.upper().isDefined() && timepointToTimestamp.get(buc).intValue() -interval.lower() < largestInOrderTS.intValue()){
-                //timepointToTimestamp.remove(buc);
-                //buckets.remove(buc);
-                toRemoveBuckets.add(buc);
-                toRemoveTPTS.add(buc);
+            while(terminators.containsKey(largestInOrderTP + 1L)){
+                largestInOrderTP++;
+                largestInOrderTS = terminators.get(largestInOrderTP);
+                // output terminator
+                PipelineEvent terminator = PipelineEvent.terminator(largestInOrderTS, largestInOrderTP);
+                out.collect(terminator);
             }
         }
-
-        for(Long tp : toRemoveBuckets){
-            buckets.remove(tp);
-        }
-
-        for(Long tp : toRemoveTPTS){
-            timepointToTimestamp.remove(tp);
-        }
-
+        cleanUpDatastructures();
     }
 
+    private void cleanUpDatastructures() {
+
+       this.terminators.keySet().removeIf(tp -> terminators.get(tp).intValue() + interval.lower() <= largestInOrderTS
+            && terminators.get(tp).intValue() + (int)interval.upper().get() <= largestInOrderTS.intValue());
+
+       this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - interval.lower());
+
+        this.timepointToTimestamp.keySet().removeIf(tp -> interval.upper().isDefined()
+                && timepointToTimestamp.get(tp).intValue() + (int)interval.upper().get() < largestInOrderTS.intValue());
+    }
 }
 
