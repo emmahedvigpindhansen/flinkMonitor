@@ -105,32 +105,34 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             Long tp = event.getTimepoint() - 1L;
             if (this.satisfactions.containsKey(tp)) {
                 Table evalSet = this.satisfactions.get(tp);
-                for (Assignment assignment : evalSet) {
-                    Optional<Assignment> result = Table.join1(event.get(), assignment, 0);
-                    if (result.isPresent()) {
+                Table result = Table.join(Table.one(event.get()), pos, evalSet);
+                if (!result.isEmpty()) {
+                    for (Assignment assignment: result) {
                         collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
                         if (satisfactions.containsKey(tp)) {
                             satisfactions.get(tp).add(assignment);
                         } else {
                             satisfactions.put(tp, Table.one(assignment));
                         }
-                        // search right in mbuf2 for consecutive assignments to output
-                        Long tp2 = event.getTimepoint() + 1L;
-                        while (mbuf2.fst.containsKey(tp2)
-                            && (timepointToTimestamp.get(tp2) - event.getTimestamp() <= (int) interval.upper().get())) {
-                            Table evalSet2 = this.mbuf2.fst.get(tp2);
-                            for (Assignment assignment2 : evalSet2) {
-                                Optional<Assignment> result2 = Table.join1(result.get(), assignment2, 0);
-                                if (result2.isPresent()) {
-                                    collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp2), tp2, assignment2));
-                                    if (satisfactions.containsKey(tp2)) {
-                                        satisfactions.get(tp2).add(assignment2);
-                                    } else {
-                                        satisfactions.put(tp2, Table.one(assignment2));
-                                    }
+                    }
+                    // search right in mbuf2 for consecutive (non-outputted) assignments
+                    Long tp2 = event.getTimepoint() + 1L;
+                    while (mbuf2.fst.containsKey(tp2)
+                            && IntervalCondition.mem2(this.timepointToTimestamp.get(tp2) - event.getTimestamp(), interval)) {
+                        Table evalSet2 = this.mbuf2.fst.get(tp2);
+                        Table result2 = Table.join(evalSet2, pos, result);
+                        if (!result2.isEmpty()) {
+                            for (Assignment assignment2 : result2) {
+                                collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp2), tp2, assignment2));
+                                if (satisfactions.containsKey(tp2)) {
+                                    satisfactions.get(tp2).add(assignment2);
+                                } else {
+                                    satisfactions.put(tp2, Table.one(assignment2));
                                 }
                             }
                             tp2 += 1L;
+                        } else {
+                            break;
                         }
                     }
                 }
@@ -201,16 +203,16 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                 satisfactions.put(event.getTimepoint(), Table.one(event.get()));
             }
             collector.collect(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), event.get()));
+
             // if alfa (publish) received before beta (approve), check if alfa should be output
             // (search mbuf2 right)
             Long tp = event.getTimepoint() + 1L;
             while (mbuf2.fst.containsKey(tp)
-                    && (this.timepointToTimestamp.get(tp) - event.getTimestamp() <= (int) interval.upper().get())) {
+                    && IntervalCondition.mem2(this.timepointToTimestamp.get(tp) - event.getTimestamp(), interval)) {
                 // check that assignments match
-                Table evalSet = mbuf2.fst.get(tp);
-                for (Assignment assignment : evalSet){
-                    Optional<Assignment> result = Table.join1(event.get(), assignment, 0);
-                    if (result.isPresent()) {
+                Table result = Table.join(Table.one(event.get()), pos, mbuf2.fst.get(tp));
+                if (!result.isEmpty()) { // will result always only contain one entry?
+                    for (Assignment assignment: result) {
                         collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
                         if (satisfactions.containsKey(tp)) {
                             satisfactions.get(tp).add(assignment);
@@ -218,8 +220,10 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                             satisfactions.put(tp, Table.one(assignment));
                         }
                     }
+                    tp += 1l;
+                } else { // break if no join result in any assignments (only want consecutive assignments)
+                    break;
                 }
-                tp += 1L;
             }
 
         } else {
