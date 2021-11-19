@@ -12,34 +12,20 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
 
     boolean pos; //flag indicating whether left subformula is positive (non-negated)
     public Mformula formula1; //left subformula
-    ch.ethz.infsec.policy.Interval interval;
     public Mformula formula2; //right subformula
     public Integer indexOfCommonKey;
+
+    ch.ethz.infsec.policy.Interval interval;
     Tuple<HashMap<Long, Table>, HashMap<Long, Table>> mbuf2; //"buf" in Verimon
-
-    //List<Long> tsList; //"nts" in Verimon
-    HashMap<Long, Table> msaux;//"aux" in Verimon
-    //for every timestamp, lists the satisfying assignments!
     HashMap<Long, Table> satisfactions;
-
-    Long largestInOrderTPsub1;
-    Long largestInOrderTPsub2;
     Long largestInOrderTP;
     Long largestInOrderTS;
+    Integer numberProcessors;
     HashMap<Long, Long> terminLeft;
     HashMap<Long, Long> terminRight;
     HashMap<Long, Integer> terminatorCount1;
     HashMap<Long, Integer> terminatorCount2;
-
     HashMap<Long, Long> timepointToTimestamp;
-    HashMap<Long, Long> timestampToTimepoint;
-
-    Long startEvalTimepoint;
-    Long startEvalTimestamp;
-    Integer numberProcessors;
-    Boolean updatedTP1 = false;
-    Boolean updatedTP2 = false;
-
 
     public MSince(boolean b, Mformula accept, ch.ethz.infsec.policy.Interval interval, Mformula accept1, Integer indexOfCommonKey) {
         this.pos = b;
@@ -47,15 +33,8 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
         this.formula2 = accept1;
         this.interval = interval;
         this.indexOfCommonKey = indexOfCommonKey;
-
-        this.msaux = new HashMap<>();
         this.satisfactions = new HashMap<>();
         this.timepointToTimestamp = new HashMap<>();
-        this.timestampToTimepoint = new HashMap<>();
-        this.largestInOrderTPsub1 = -1L;
-        this.largestInOrderTPsub2 = -1L;
-        this.startEvalTimepoint = 0L;
-        this.startEvalTimestamp = 0L;
         HashMap<Long, Table> fst = new HashMap<>();
         HashMap<Long, Table> snd = new HashMap<>();
         this.mbuf2 = new Tuple<>(fst, snd);
@@ -88,9 +67,6 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
 
         if(!timepointToTimestamp.containsKey(event.getTimepoint())){
             timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
-        }
-        if(!timestampToTimepoint.containsKey(event.getTimestamp())){
-            timestampToTimepoint.put(event.getTimestamp(), event.getTimepoint());
         }
 
         if(event.isPresent()){
@@ -149,32 +125,15 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             if ((terminatorCount1.get(event.getTimepoint()).equals(this.formula1.getNumberProcessors()))) {
                 terminLeft.put(event.getTimepoint(), event.getTimestamp());
             }
-            // update startEvalTimepoint in order to clean up datastructures
             while(terminLeft.containsKey(largestInOrderTP + 1L) && terminRight.containsKey(largestInOrderTP + 1L)){
                 largestInOrderTP++;
-                updatedTP1 = true;
+                largestInOrderTS = terminLeft.get(largestInOrderTP);
                 // output terminator
                 PipelineEvent terminator = PipelineEvent.terminator(terminLeft.get(largestInOrderTP), largestInOrderTP);
                 collector.collect(terminator);
             }
-            if (largestInOrderTP > -1L && updatedTP1) {
-                largestInOrderTS = timepointToTimestamp.get(largestInOrderTP);
-                startEvalTimestamp = largestInOrderTS - (int) interval.upper().get();
-                // find timestamp nearest startEvalTimestamp (from below)
-                double minDiff = Double.MAX_VALUE;
-                Long nearest = null;
-                for (long key : timestampToTimepoint.keySet()) {
-                    double diff = startEvalTimestamp - key;
-                    if (diff < minDiff && diff > 0) {
-                        nearest = key;
-                        minDiff = diff;
-                    }
-                }
-                startEvalTimepoint = timestampToTimepoint.containsKey(nearest) ? timestampToTimepoint.get(nearest) : 0L;
-            }
         }
         cleanUpDatastructures();
-        updatedTP1 = false;
     }
 
 
@@ -183,9 +142,6 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
 
         if(!timepointToTimestamp.containsKey(event.getTimepoint())){
             timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
-        }
-        if(!timestampToTimepoint.containsKey(event.getTimestamp())){
-            timestampToTimepoint.put(event.getTimestamp(), event.getTimepoint());
         }
 
         if(event.isPresent()){
@@ -220,7 +176,7 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                             satisfactions.put(tp, Table.one(assignment));
                         }
                     }
-                    tp += 1l;
+                    tp += 1L;
                 } else { // break if no join result in any assignments (only want consecutive assignments)
                     break;
                 }
@@ -236,40 +192,22 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             if ((terminatorCount2.get(event.getTimepoint()).equals(this.formula2.getNumberProcessors()))) {
                 terminRight.put(event.getTimepoint(), event.getTimestamp());
             }
-            // update startEvalTimestamp in order to clean up datastructures
             while (terminLeft.containsKey(largestInOrderTP + 1L) && terminRight.containsKey(largestInOrderTP + 1L)) {
                 largestInOrderTP++;
+                largestInOrderTS = terminLeft.get(largestInOrderTP);
                 // output terminator
                 PipelineEvent terminator = PipelineEvent.terminator(terminLeft.get(largestInOrderTP), largestInOrderTP);
                 collector.collect(terminator);
-                updatedTP2 = true;
-            }
-            if (largestInOrderTP > -1L && updatedTP2) {
-                largestInOrderTS = timepointToTimestamp.get(largestInOrderTP);
-                startEvalTimestamp = largestInOrderTS - (int) interval.upper().get();
-                // find timestamp nearest startEvalTimestamp (from below)
-                double minDiff = Double.MAX_VALUE;
-                Long nearest = null;
-                for (long key : timestampToTimepoint.keySet()) {
-                    double diff = startEvalTimestamp - key;
-                    if (diff < minDiff && diff > 0) {
-                        nearest = key;
-                        minDiff = diff;
-                    }
-                }
-                startEvalTimepoint = timestampToTimepoint.containsKey(nearest) ? timestampToTimepoint.get(nearest) : 0L;
             }
         }
         cleanUpDatastructures();
-        updatedTP2 = false;
     }
 
     private void cleanUpDatastructures(){
-        mbuf2.fst.keySet().removeIf(tp -> tp < startEvalTimepoint);
-        mbuf2.snd.keySet().removeIf(tp -> tp < startEvalTimepoint);
-        satisfactions.keySet().removeIf(tp -> tp < startEvalTimepoint);
-        timepointToTimestamp.keySet().removeIf(tp -> tp < startEvalTimepoint);
-        timestampToTimepoint.keySet().removeIf(ts -> ts < startEvalTimestamp);
+        mbuf2.fst.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+        mbuf2.snd.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+        satisfactions.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+        timepointToTimestamp.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
         terminLeft.keySet().removeIf(tp -> tp < largestInOrderTP);
         terminRight.keySet().removeIf(tp -> tp < largestInOrderTP);
     }
