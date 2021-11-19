@@ -83,8 +83,8 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
 
         if (event.isPresent()) {
             for(Long term : terminators.keySet()){
-                if(IntervalCondition.mem2(terminators.get(term) - event.getTimestamp(), interval)){
-                    PipelineEvent result = PipelineEvent.event(terminators.get(term), term, event.get());
+                if(IntervalCondition.mem2(timepointToTimestamp.get(term) - event.getTimestamp(), interval)){
+                    PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
                     out.collect(result);
                 }
             }
@@ -92,10 +92,10 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
         } else {
             Long termtp = event.getTimepoint();
             for (Long tp : buckets.keySet()){
-                if(IntervalCondition.mem2(terminators.get(termtp) - timepointToTimestamp.get(tp), interval)){
+                if(IntervalCondition.mem2(timepointToTimestamp.get(termtp) - timepointToTimestamp.get(tp), interval)){
                     HashSet<Assignment> satisfEvents = buckets.get(tp);
                     for(Assignment pe : satisfEvents){
-                        PipelineEvent result = PipelineEvent.event(terminators.get(termtp), termtp, pe);
+                        PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(termtp), termtp, pe);
                         out.collect(result);
                     }
                 }
@@ -104,7 +104,7 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
                 largestInOrderTP++;
                 largestInOrderTS = terminators.get(largestInOrderTP);
                 // output terminator
-                PipelineEvent terminator = PipelineEvent.terminator(terminators.get(largestInOrderTP), largestInOrderTP);
+                PipelineEvent terminator = PipelineEvent.terminator(largestInOrderTS, largestInOrderTP);
                 out.collect(terminator);
             }
         }
@@ -113,58 +113,14 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
 
     }
 
-    private void cleanUpDatastructures(){ // need to clean up terminators!
+    private void cleanUpDatastructures(){
+        this.terminators.keySet().removeIf(tp -> terminators.get(tp).intValue() - interval.lower() <= largestInOrderTS.intValue());
 
-        buckets.keySet().removeIf(tp -> interval.upper().isDefined()
+        this.buckets.keySet().removeIf(tp -> interval.upper().isDefined()
                 && timepointToTimestamp.get(tp).intValue() + (int)interval.upper().get() < largestInOrderTS.intValue());
 
-
-        HashSet<Long> toRemove = new HashSet<>();
-        HashSet<Long> toRemoveTPTS = new HashSet<>();
-        HashSet<Long> toRemoveBuckets = new HashSet<>();
-
-        /*terminators.keySet().removeIf(tp -> terminators.containsKey(tp)
-                && terminators.get(tp).intValue() + (int)interval.upper().get() < largestInOrderTS.intValue());
-        */
-
-        // terminatorCount.keySet().removeIf(tp -> tp < largestInOrderTP);
-
-
-        /*timepointToTimestamp.keySet().removeIf(tp ->
-                interval.upper().isDefined() && timepointToTimestamp.get(tp).intValue() + (int)interval.upper().get() < largestInOrderTS.intValue());
-        */
-
-        /*for(Long term : terminators.keySet()){
-
-            System.out.println("term : " + term);
-
-            //we only consider terminators and not buckets because we evaluate wrt largestInOrderTP
-            if(terminators.containsKey(term) && terminators.get(term).intValue() + (int)interval.upper().get() <= largestInOrderTS.intValue() ){
-                System.out.println("remove");
-                toRemove.add(term);
-            }
-
-        }
-        for(Long tp : toRemove){
-            terminators.remove(tp);
-            // terminatorCount.remove(tp);
-        }*/
-
-        /*for(Long buc : buckets.keySet()){
-            if(interval.upper().isDefined() && timepointToTimestamp.get(buc).intValue() + (int)interval.upper().get() < largestInOrderTS.intValue()){
-                toRemoveBuckets.add(buc);
-                toRemoveTPTS.add(buc);
-            }
-        }
-
-        for(Long tp : toRemoveBuckets){
-            buckets.remove(tp);
-        }
-
-        for(Long tp : toRemoveTPTS){
-            timepointToTimestamp.remove(tp);
-        }*/
-
+        this.timepointToTimestamp.keySet().removeIf(tp -> interval.upper().isDefined()
+                && timepointToTimestamp.get(tp).intValue() + (int)interval.upper().get() < largestInOrderTS.intValue());
     }
 }
 
