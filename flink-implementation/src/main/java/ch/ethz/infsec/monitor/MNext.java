@@ -103,6 +103,8 @@ public class MNext implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
             }
             out.collect(PipelineEvent.terminator(event.getTimestamp(), event.getTimepoint()));
             terminators.remove(event.getTimepoint() - 1);
+            terminatorCount.remove(event.getTimepoint() - 1);
+            timepointToTimestamp.keySet().removeIf(tp -> tp <= event.getTimepoint() - 1);
         }
     }
 

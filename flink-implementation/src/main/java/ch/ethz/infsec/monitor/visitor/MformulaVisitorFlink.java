@@ -80,7 +80,7 @@ public class MformulaVisitorFlink implements MformulaVisitor<DataStream<Pipeline
     }
 
     public DataStream<PipelineEvent> visit(MExists f) {
-        DataStream<PipelineEvent> input = f.subFormula.accept(this);
+        DataStream<PipelineEvent> input = f.formula.accept(this);
         f.setNumberProcessors(Main.numberProcessors);
         // duplicate terminators
         DataStream<PipelineEvent> inputduplicated = input
