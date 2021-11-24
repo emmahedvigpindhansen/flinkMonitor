@@ -45,32 +45,23 @@ public class MPrev implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
     @Override
     public void flatMap(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
 
-        /*if(!timepointToTimestamp.containsKey(event.getTimepoint()) && event.getTimepoint() != 0){
+        if(!timepointToTimestamp.containsKey(event.getTimepoint())){
             timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
-        }*/
+        }
 
-        if(event.isPresent()){
+        if (event.isPresent()) {
 
-            if(timepointToTimestamp.keySet().contains(event.getTimepoint() + 1) || terminators.containsKey(event.getTimepoint() + 1)){
-                if(timepointToTimestamp.keySet().contains(event.getTimepoint() + 1)){
-                    if(IntervalCondition.mem2(timepointToTimestamp.get(event.getTimepoint() + 1) - event.getTimestamp(), interval)){
-                        out.collect(PipelineEvent.event(timepointToTimestamp.get(event.getTimepoint() + 1),
+            if (timepointToTimestamp.keySet().contains(event.getTimepoint() + 1)) {
+                if (IntervalCondition.mem2(timepointToTimestamp.get(event.getTimepoint() + 1) - event.getTimestamp(), interval)) {
+                    out.collect(PipelineEvent.event(timepointToTimestamp.get(event.getTimepoint() + 1),
                                 event.getTimepoint() + 1, event.get()));
-                    }
-                }else{
-                    if(IntervalCondition.mem2(terminators.get(event.getTimepoint() + 1) - event.getTimestamp(), interval)){
-                        out.collect(PipelineEvent.event(terminators.get(event.getTimepoint() + 1),
-                                event.getTimepoint() + 1, event.get()));
-                    }
                 }
-
-            }else{
-
+            } else {
                 if(A.keySet().contains(event.getTimepoint())){
-                    A.get(event.getTimepoint()).add(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), event.get()));
+                    A.get(event.getTimepoint()).add(event);
                 }else{
                     HashSet<PipelineEvent> hspe = new HashSet<>();
-                    hspe.add(PipelineEvent.event( event.getTimestamp(), event.getTimepoint(), event.get()));
+                    hspe.add(event);
                     A.put(event.getTimepoint(), hspe);
                 }
             }
@@ -86,28 +77,14 @@ public class MPrev implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
             if ((terminatorCount.get(event.getTimepoint()).equals(this.formula.getNumberProcessors()))) {
                 terminators.put(event.getTimepoint(), event.getTimestamp());
             }
-
-            /*if(TT.containsKey(event.getTimepoint() + 1)){
-                out.collect(PipelineEvent.terminator( TT.get(event.getTimepoint() + 1),event.getTimepoint()+ 1));
-                TT.remove(event.getTimepoint() + 1);
-            }
-            TT.put(event.getTimepoint(), event.getTimestamp());*/
-
-
         }
-        handleBuffered(event, out); // also output terminator
+        handleBuffered(event, out);
     }
 
     public void handleBuffered(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
-       if(event.getTimepoint() == 0){
-            return;
-        }else{
-            if(event.isPresent() && !timepointToTimestamp.containsKey(event.getTimepoint())){
-                timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
-            }
-        }
 
-        if(A.containsKey(event.getTimepoint() - 1)){ //checks previous events
+        // check previous events
+        if(A.containsKey(event.getTimepoint() - 1)){
             HashSet<PipelineEvent> eventsAtPrev = A.get(event.getTimepoint() - 1);
             for (PipelineEvent buffAss : eventsAtPrev){
                 if(IntervalCondition.mem2((event.getTimestamp() - buffAss.getTimestamp()), interval)){
@@ -115,15 +92,14 @@ public class MPrev implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
                 }
             }
             A.remove(event.getTimepoint() - 1);
-
         }
+        // output terminators
         if(terminators.containsKey(event.getTimepoint() - 1)){
             if(event.getTimepoint() - 1 == 0L){
                 out.collect(PipelineEvent.terminator(terminators.get(0L), event.getTimepoint() - 1));
             }
             out.collect(PipelineEvent.terminator(event.getTimestamp(), event.getTimepoint()));
             terminators.remove(event.getTimepoint() - 1);
-            terminators.remove(event.getTimepoint());
         }
     }
 
