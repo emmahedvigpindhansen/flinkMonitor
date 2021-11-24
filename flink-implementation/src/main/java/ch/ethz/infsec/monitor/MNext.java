@@ -15,20 +15,20 @@ public class MNext implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
     ch.ethz.infsec.policy.Interval interval;
     public Mformula formula;
     boolean bool;
-    LinkedList<Long> tsList;
     HashMap<Long, HashSet<PipelineEvent>> A; //mapping from timepoint to set of assignments (set of PEs)
-    HashMap<Long, Long> T; //mapping from timepoint to timestamps for non-terminator events
-    HashMap<Long, Long> TT;//mapping from timepoint to timestamps for terminator events
+    HashMap<Long, Long> timepointToTimestamp; //mapping from timepoint to timestamps for non-terminator events
+    HashMap<Long, Long> terminators;//mapping from timepoint to timestamps for terminator events
     Integer numberProcessors;
+    HashMap<Long, Integer> terminatorCount;
 
     public MNext(ch.ethz.infsec.policy.Interval interval, Mformula mform, boolean bool, LinkedList<Long> tsList) {
         this.interval = interval;
         this.formula = mform;
         this.bool = bool;
-        this.tsList = tsList;
         this.A = new HashMap<>();
-        this.T = new HashMap<>();
-        this.TT = new HashMap<>();
+        this.timepointToTimestamp = new HashMap<>();
+        this.terminators = new HashMap<>();
+        this.terminatorCount = new HashMap<>();
     }
 
     @Override
@@ -48,78 +48,61 @@ public class MNext implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
 
 
     @Override
-    public void flatMap(PipelineEvent value, Collector<PipelineEvent> out) throws Exception {
-        //In the Verimon impl., meval returns a List<Table> (called xs), which corresponds to
-        //the satisfying assignments of the subformula, and phi (the subformula). In this streaming context
-        //instead of the Mformula phi, this part will be saved in the state (events within a same timestamp
-        //are separated by a Terminator.
-        //The flag "first" is true until you send out the first Terminator. This means you have passed
-        //the first point. Then you set the flag to false. But while you are passing the first, you check
-        //the boolean and return nothing.
+    public void flatMap(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
 
-
-
-        if(value.isPresent()){
-            if(!T.containsKey(value.getTimepoint())){
-                T.put(value.getTimepoint(), value.getTimestamp());
-            }
-            //1)
-            if(T.keySet().contains(value.getTimepoint() - 1) || TT.containsKey(value.getTimepoint() - 1)){
-                if(T.containsKey(value.getTimepoint() - 1)){
-                    if(IntervalCondition.mem2(value.getTimestamp() - T.get(value.getTimepoint() - 1), interval)){
-                        out.collect(PipelineEvent.event(T.get(value.getTimepoint() - 1),
-                                value.getTimepoint() - 1, value.get()));
-                    }
-                }else{
-                    if(IntervalCondition.mem2(value.getTimestamp() - TT.get(value.getTimepoint() - 1), interval)){
-                        out.collect(PipelineEvent.event(TT.get(value.getTimepoint() - 1),
-                                value.getTimepoint() - 1, value.get()));
-                    }
-                }
-
-            }else{
-                if(A.keySet().contains(value.getTimepoint())){
-                    A.get(value.getTimepoint()).add(PipelineEvent.event(value.getTimepoint(),
-                            value.getTimestamp(), value.get()));
-                }else{
-                    HashSet<PipelineEvent> hspe = new HashSet<>();
-                    hspe.add(PipelineEvent.event(value.getTimepoint(), value.getTimestamp(),  value.get()));
-                    A.put(value.getTimepoint(), hspe);
-                }
-            }
-        }else{
-            if(TT.keySet().contains(value.getTimepoint() - 1)){
-                out.collect(PipelineEvent.terminator(TT.get(value.getTimepoint() - 1), value.getTimepoint()- 1));
-                TT.put(value.getTimepoint(), value.getTimestamp());
-                TT.remove(value.getTimepoint() - 1);
-            }else{
-                TT.put(value.getTimepoint(), value.getTimestamp());
-            }
-            //2
+        if (!timepointToTimestamp.containsKey(event.getTimepoint())) {
+            timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
         }
-        handleBuffered(value, out);
+
+        if (event.isPresent()) {
+            if (timepointToTimestamp.keySet().contains(event.getTimepoint() - 1)) {
+                if (IntervalCondition.mem2(event.getTimestamp() - timepointToTimestamp.get(event.getTimepoint() - 1), interval)) {
+                    out.collect(PipelineEvent.event(timepointToTimestamp.get(event.getTimepoint() - 1),
+                            event.getTimepoint() - 1, event.get()));
+                }
+            } else {
+                if (A.keySet().contains(event.getTimepoint())) {
+                    A.get(event.getTimepoint()).add(event);
+                } else {
+                    HashSet<PipelineEvent> hspe = new HashSet<>();
+                    hspe.add(event);
+                    A.put(event.getTimepoint(), hspe);
+                }
+            }
+
+        } else {
+            if (!terminatorCount.containsKey(event.getTimepoint())) {
+                terminatorCount.put(event.getTimepoint(), 1);
+            } else {
+                terminatorCount.put(event.getTimepoint(), terminatorCount.get(event.getTimepoint()) + 1);
+            }
+            // only add terminator when received correct amount
+            if ((terminatorCount.get(event.getTimepoint()).equals(this.formula.getNumberProcessors()))) {
+                terminators.put(event.getTimepoint(), event.getTimestamp());
+            }
+        }
+        handleBuffered(event, out);
     }
 
-    public void handleBuffered(PipelineEvent value, Collector<PipelineEvent> out) throws Exception {
-        if(value.isPresent() && !T.keySet().contains(value.getTimepoint())){
-            T.put(value.getTimepoint(), value.getTimestamp());
-        }
-        if(A.keySet().contains(value.getTimepoint() + 1)){
-            HashSet<PipelineEvent> eventsAtPrev = A.get(value.getTimepoint() + 1);
-            for (PipelineEvent buffAss : eventsAtPrev){
-                if(IntervalCondition.mem2( buffAss.getTimestamp() - value.getTimestamp(), interval)){
-                    assert(buffAss.getTimestamp() - value.getTimestamp() >= 0);
-
-                    out.collect(PipelineEvent.event(value.getTimepoint(),
-                            value.getTimestamp(),  buffAss.get()));
+    public void handleBuffered(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
+        // check next events
+        if (A.keySet().contains(event.getTimepoint() + 1)) {
+            HashSet<PipelineEvent> eventsAtNext = A.get(event.getTimepoint() + 1);
+            for (PipelineEvent buffAss : eventsAtNext){
+                if(IntervalCondition.mem2( buffAss.getTimestamp() - event.getTimestamp(), interval)){
+                    //assert(buffAss.getTimestamp() - event.getTimestamp() >= 0);
+                    out.collect(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(),  buffAss.get()));
                 }
             }
-            A.remove(value.getTimepoint() + 1);
+            A.remove(event.getTimepoint() + 1);
         }
-        if(TT.keySet().contains(value.getTimepoint() + 1)){
-            out.collect(PipelineEvent.terminator(value.getTimepoint(), value.getTimestamp()));
-            TT.remove(value.getTimepoint() + 1);
-            T.remove(value.getTimepoint());
+        // output terminators
+        if(terminators.containsKey(event.getTimepoint() - 1)){
+            if(event.getTimepoint() - 1 == 0L){
+                out.collect(PipelineEvent.terminator(terminators.get(0L), event.getTimepoint() - 1));
+            }
+            out.collect(PipelineEvent.terminator(event.getTimestamp(), event.getTimepoint()));
+            terminators.remove(event.getTimepoint() - 1);
         }
     }
 
