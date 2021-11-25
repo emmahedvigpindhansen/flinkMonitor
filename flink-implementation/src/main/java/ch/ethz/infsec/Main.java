@@ -134,10 +134,12 @@ public class Main {
                         }
                     }).setParallelism(1);
 
-            Mformula mformula = (convert(formula)).accept(new Init0(formula.freeVariablesInOrder()));
+            Init0 init0 = new Init0(formula.freeVariablesInOrder());
+            Mformula mformula = (convert(formula)).accept(init0);
+            List<VariableID> fvios = init0.getFreeVariablesInOrder();
             DataStream<PipelineEvent> sink = mformula.accept(new MformulaVisitorFlink(hashmap, mainDataStream));
 
-            DataStream<String> strOutput = sink.map(PipelineEvent::toString);
+            DataStream<String> strOutput = sink.flatMap(new PrettyPrint(fvios)).map(PipelineEvent::toString);
             // strOutput.addSink(StreamingFileSink.forRowFormat(new Path(outputFile),new SimpleStringEncoder<String>("UTF-8")).build()).setParallelism(1);
 
             strOutput.writeAsText(outputFile, FileSystem.WriteMode.OVERWRITE).setParallelism(1);

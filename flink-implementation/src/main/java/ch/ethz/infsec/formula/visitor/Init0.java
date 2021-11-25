@@ -24,10 +24,11 @@ public class Init0 implements FormulaVisitor<Mformula> {
         this.fvio = fvio;
     }
 
+    public List<VariableID> getFreeVariablesInOrder() {return this.freeVariablesInOrder;}
+
     public Mformula visit(JavaPred<VariableID> f){
         return new MPred(f.relation(), f.args(), this.freeVariablesInOrder);
     }
-
 
     public Mformula visit(JavaNot<VariableID> f) {
         // check that this is the right way to handle keys in Not case
