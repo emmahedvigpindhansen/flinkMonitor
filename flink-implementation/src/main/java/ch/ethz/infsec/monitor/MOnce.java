@@ -94,7 +94,8 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
         } else {
             Long termtp = event.getTimepoint();
             for (Long tp : buckets.keySet()){
-                if(IntervalCondition.mem2(timepointToTimestamp.get(termtp) - timepointToTimestamp.get(tp), interval)){
+                if(IntervalCondition.mem2(timepointToTimestamp.get(termtp) - timepointToTimestamp.get(tp), interval)
+                    && tp <= termtp){ // make sure that only subsequent events are output
                     HashSet<Assignment> satisfEvents = buckets.get(tp);
                     for(Assignment pe : satisfEvents){
                         PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(termtp), termtp, pe);

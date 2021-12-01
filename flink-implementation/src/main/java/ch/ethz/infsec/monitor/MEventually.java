@@ -80,7 +80,7 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
             Long ts = event.getTimestamp();
             for(Long term : terminators.keySet()){
                 if(IntervalCondition.mem2(ts - timepointToTimestamp.get(term) , interval)
-                    && tp > term){ // make sure that only previous terminators are output
+                    && tp >= term){ // make sure that only previous terminators are output
                     PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
                     out.collect(result);
                 }
