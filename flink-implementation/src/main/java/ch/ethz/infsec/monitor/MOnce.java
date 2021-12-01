@@ -83,9 +83,12 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
 
         if (event.isPresent()) {
             for(Long term : terminators.keySet()){
-                if(IntervalCondition.mem2(timepointToTimestamp.get(term) - event.getTimestamp(), interval)){
+                if(IntervalCondition.mem2(timepointToTimestamp.get(term) - event.getTimestamp(), interval)
+                    && event.getTimepoint() <= term){
                     PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
                     out.collect(result);
+                    System.out.println(timepointToTimestamp.get(term) - event.getTimestamp());
+                    System.out.println("terminators : " + result);
                 }
             }
 
@@ -97,6 +100,8 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
                     for(Assignment pe : satisfEvents){
                         PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(termtp), termtp, pe);
                         out.collect(result);
+                        System.out.println(timepointToTimestamp.get(termtp) - timepointToTimestamp.get(tp));
+                        System.out.println("buckets : " + result);
                     }
                 }
             }
@@ -112,14 +117,24 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
     }
 
     private void cleanUpDatastructures(){
-        this.terminators.keySet().removeIf(tp -> terminators.get(tp).intValue() + interval.lower() <= largestInOrderTS.intValue()
+        this.terminators.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
+
+        this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
+
+        this.timepointToTimestamp.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
+
+        //this.terminators.keySet().removeIf(tp -> terminators.get(tp).intValue() - interval.lower() <= largestInOrderTS.intValue());
+        /*this.terminators.keySet().removeIf(tp -> terminators.get(tp).intValue() + interval.lower() <= largestInOrderTS.intValue()
                 && interval.upper().isDefined()
                 && terminators.get(tp).intValue() + (int)interval.upper().get() <= largestInOrderTS.intValue());
+        */
+        // this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() - interval.lower() < largestInOrderTS.intValue());
 
-        this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() - interval.lower() < largestInOrderTS.intValue());
-
-        this.timepointToTimestamp.keySet().removeIf(tp -> interval.upper().isDefined()
+        /*this.timepointToTimestamp.keySet().removeIf(tp -> interval.upper().isDefined()
                 && timepointToTimestamp.get(tp).intValue() + (int)interval.upper().get() < largestInOrderTS.intValue());
+
+
+         */
     }
 }
 
