@@ -75,20 +75,19 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
             } else {
                 terminatorCount.put(event.getTimepoint(), terminatorCount.get(event.getTimepoint()) + 1);
             }
-            // only add terminator when received correct amount
-            if ((terminatorCount.get(event.getTimepoint()).equals(this.formula.getNumberProcessors()))) {
+            if (!terminators.containsKey(event.getTimepoint())) {
                 terminators.put(event.getTimepoint(), event.getTimestamp());
             }
         }
 
         if (event.isPresent()) {
+            Long tp = event.getTimepoint();
+            Long ts = event.getTimestamp();
             for(Long term : terminators.keySet()){
-                if(IntervalCondition.mem2(timepointToTimestamp.get(term) - event.getTimestamp(), interval)
-                    && event.getTimepoint() <= term){
+                if(IntervalCondition.mem2(timepointToTimestamp.get(term) - ts, interval)
+                    && tp <= term){ // make sure that only subsequent terminators are output
                     PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
                     out.collect(result);
-                    System.out.println(timepointToTimestamp.get(term) - event.getTimestamp());
-                    System.out.println("terminators : " + result);
                 }
             }
 
@@ -100,12 +99,11 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
                     for(Assignment pe : satisfEvents){
                         PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(termtp), termtp, pe);
                         out.collect(result);
-                        System.out.println(timepointToTimestamp.get(termtp) - timepointToTimestamp.get(tp));
-                        System.out.println("buckets : " + result);
                     }
                 }
             }
-            while(terminators.containsKey(largestInOrderTP + 1L)){
+            while(terminators.containsKey(largestInOrderTP + 1L)
+                && terminatorCount.get(largestInOrderTP + 1L).equals(this.formula.getNumberProcessors())){
                 largestInOrderTP++;
                 largestInOrderTS = terminators.get(largestInOrderTP);
                 // output terminator
@@ -122,19 +120,6 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
         this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
 
         this.timepointToTimestamp.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
-
-        //this.terminators.keySet().removeIf(tp -> terminators.get(tp).intValue() - interval.lower() <= largestInOrderTS.intValue());
-        /*this.terminators.keySet().removeIf(tp -> terminators.get(tp).intValue() + interval.lower() <= largestInOrderTS.intValue()
-                && interval.upper().isDefined()
-                && terminators.get(tp).intValue() + (int)interval.upper().get() <= largestInOrderTS.intValue());
-        */
-        // this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() - interval.lower() < largestInOrderTS.intValue());
-
-        /*this.timepointToTimestamp.keySet().removeIf(tp -> interval.upper().isDefined()
-                && timepointToTimestamp.get(tp).intValue() + (int)interval.upper().get() < largestInOrderTS.intValue());
-
-
-         */
     }
 }
 
