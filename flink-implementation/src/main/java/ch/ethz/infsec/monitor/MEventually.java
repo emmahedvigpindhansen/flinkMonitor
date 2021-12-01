@@ -70,15 +70,17 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
             } else {
                 terminatorCount.put(event.getTimepoint(), terminatorCount.get(event.getTimepoint()) + 1);
             }
-            // only add terminator when received correct amount
-            if ((terminatorCount.get(event.getTimepoint()).equals(this.formula.getNumberProcessors()))) {
+            if (!terminators.containsKey(event.getTimepoint())) {
                 terminators.put(event.getTimepoint(), event.getTimestamp());
             }
         }
 
         if (event.isPresent()) {
+            Long tp = event.getTimepoint();
+            Long ts = event.getTimestamp();
             for(Long term : terminators.keySet()){
-                if(IntervalCondition.mem2(event.getTimestamp() - timepointToTimestamp.get(term) , interval)){
+                if(IntervalCondition.mem2(ts - timepointToTimestamp.get(term) , interval)
+                    && tp > term){ // make sure that only previous terminators are output
                     PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
                     out.collect(result);
                 }
@@ -86,7 +88,8 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
         } else {
             Long termtp = event.getTimepoint();
             for(Long tp : buckets.keySet()){
-                if(IntervalCondition.mem2(timepointToTimestamp.get(tp) - timepointToTimestamp.get(termtp), interval)){
+                if(IntervalCondition.mem2(timepointToTimestamp.get(tp) - timepointToTimestamp.get(termtp), interval)
+                    && tp >= termtp){ // make sure that only previous events are output
                     HashSet<Assignment> satisfEvents = buckets.get(tp);
                     for(Assignment pe : satisfEvents){
                         PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(termtp), termtp, pe);
@@ -94,7 +97,8 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
                     }
                 }
             }
-            while(terminators.containsKey(largestInOrderTP + 1L)){
+            while(terminators.containsKey(largestInOrderTP + 1L)
+                && terminatorCount.get(largestInOrderTP + 1L).equals(this.formula.getNumberProcessors())){
                 largestInOrderTP++;
                 largestInOrderTS = terminators.get(largestInOrderTP);
                 // output terminator
@@ -107,13 +111,11 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
 
     private void cleanUpDatastructures() {
 
-       this.terminators.keySet().removeIf(tp -> terminators.get(tp).intValue() + interval.lower() <= largestInOrderTS
-            && terminators.get(tp).intValue() + (int)interval.upper().get() <= largestInOrderTS.intValue());
+       this.terminators.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
 
-       this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - interval.lower());
+       this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
 
-        this.timepointToTimestamp.keySet().removeIf(tp -> interval.upper().isDefined()
-                && timepointToTimestamp.get(tp).intValue() + (int)interval.upper().get() < largestInOrderTS.intValue());
+       this.timepointToTimestamp.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
     }
 }
 
