@@ -57,8 +57,6 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
     @Override
     public void flatMap(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
 
-        System.out.println("incoming : " + event.toString());
-
         if(!timepointToTimestamp.containsKey(event.getTimepoint())){
             timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
         }
