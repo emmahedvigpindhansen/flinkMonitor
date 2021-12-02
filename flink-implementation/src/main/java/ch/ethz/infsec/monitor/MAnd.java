@@ -73,15 +73,13 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
                 }
             }
 
-            // cleanup
+            // Only one terminator needs to be output
             if(terminatorLHS.contains(event.getTimepoint()) && terminatorRHS.contains(event.getTimepoint())){
-                this.mbuf2.fst.remove(event.getTimepoint());
-                this.mbuf2.snd.remove(event.getTimepoint());
-                // Only one terminator needs to be output
                 collector.collect(event);
                 terminatorRHS.remove(event.getTimepoint());
                 terminatorLHS.remove(event.getTimepoint());
             }
+
         } else {
             if (mbuf2.fst().containsKey(event.getTimepoint())) {
                 mbuf2.fst().get(event.getTimepoint()).add(event.get());
@@ -119,18 +117,16 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
                     terminatorRHS.add(event.getTimepoint());
                 }
             }
-
-            // cleanup
+            // Only one terminator needs to be output
             if(terminatorLHS.contains(event.getTimepoint()) && terminatorRHS.contains(event.getTimepoint())){
-                this.mbuf2.fst.remove(event.getTimepoint());
-                this.mbuf2.snd.remove(event.getTimepoint());
-                // Only one terminator needs to be output
                 collector.collect(event);
                 terminatorRHS.remove(event.getTimepoint());
                 terminatorLHS.remove(event.getTimepoint());
             }
 
-        }else {if (mbuf2.snd().containsKey(event.getTimepoint())) {
+        }else {
+
+            if (mbuf2.snd().containsKey(event.getTimepoint())) {
                 mbuf2.snd().get(event.getTimepoint()).add(event.get());
             } else {
                 mbuf2.snd().put(event.getTimepoint(), Table.one(event.get()));
@@ -147,6 +143,4 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
             }
         }
     }
-
-
 }
