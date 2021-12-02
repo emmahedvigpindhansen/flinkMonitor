@@ -83,7 +83,6 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
                     && tp >= term){ // make sure that only previous terminators are output
                     PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
                     out.collect(result);
-                    // System.out.println("eventually result : " + result.toString());
                 }
             }
         } else {
@@ -113,11 +112,11 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
 
     private void cleanUpDatastructures() {
 
-       this.terminators.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
+       this.terminators.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
 
-       this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
+       this.buckets.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
 
-       this.timepointToTimestamp.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
+       this.timepointToTimestamp.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
     }
 }
 

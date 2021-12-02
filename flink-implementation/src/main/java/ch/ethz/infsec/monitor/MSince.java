@@ -204,10 +204,11 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     }
 
     private void cleanUpDatastructures(){
-        mbuf2.fst.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
-        mbuf2.snd.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
-        satisfactions.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
-        timepointToTimestamp.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+
+        mbuf2.fst.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
+        mbuf2.snd.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
+        satisfactions.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
+        timepointToTimestamp.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
         terminLeft.keySet().removeIf(tp -> tp < largestInOrderTP);
         terminRight.keySet().removeIf(tp -> tp < largestInOrderTP);
     }

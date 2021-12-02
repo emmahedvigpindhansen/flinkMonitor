@@ -116,11 +116,9 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
     }
 
     private void cleanUpDatastructures(){
-        this.terminators.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
-
-        this.buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
-
-        this.timepointToTimestamp.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS.intValue() - (int) interval.upper().get());
+        this.terminators.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
+        this.buckets.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
+        this.timepointToTimestamp.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
     }
 }
 
