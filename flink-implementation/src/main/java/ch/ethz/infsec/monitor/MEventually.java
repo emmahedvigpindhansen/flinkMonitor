@@ -83,6 +83,7 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
                     && tp >= term){ // make sure that only previous terminators are output
                     PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
                     out.collect(result);
+                    // System.out.println("eventually result : " + result.toString());
                 }
             }
         } else {
@@ -94,6 +95,7 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
                     for(Assignment pe : satisfEvents){
                         PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(termtp), termtp, pe);
                         out.collect(result);
+                        // System.out.println("eventually result : " + result.toString());
                     }
                 }
             }
