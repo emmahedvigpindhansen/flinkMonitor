@@ -65,6 +65,8 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     @Override
     public void flatMap1(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
 
+        System.out.println("incoming 1 : " + event.toString());
+
         if(!timepointToTimestamp.containsKey(event.getTimepoint())){
             timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
         }
@@ -140,6 +142,8 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     @Override
     public void flatMap2(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
 
+        System.out.println("incoming 2 : " + event.toString());
+
         if(!timepointToTimestamp.containsKey(event.getTimepoint())){
             timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
         }
@@ -204,11 +208,17 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     }
 
     private void cleanUpDatastructures(){
-
-        mbuf2.fst.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
-        mbuf2.snd.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
-        satisfactions.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
-        timepointToTimestamp.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
+        if (interval.upper().isDefined()) {
+            mbuf2.fst.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+            mbuf2.snd.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+            satisfactions.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+            timepointToTimestamp.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+        } else {
+            mbuf2.fst.keySet().removeIf(tp -> largestInOrderTS - timepointToTimestamp.get(tp).intValue() < interval.lower());
+            mbuf2.snd.keySet().removeIf(tp -> largestInOrderTS - timepointToTimestamp.get(tp).intValue() < interval.lower());
+            satisfactions.keySet().removeIf(tp -> largestInOrderTS - timepointToTimestamp.get(tp).intValue() < interval.lower());
+            timepointToTimestamp.keySet().removeIf(tp -> largestInOrderTS - timepointToTimestamp.get(tp).intValue() < interval.lower());
+        }
         terminLeft.keySet().removeIf(tp -> tp < largestInOrderTP);
         terminRight.keySet().removeIf(tp -> tp < largestInOrderTP);
     }

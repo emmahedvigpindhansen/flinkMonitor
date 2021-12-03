@@ -116,9 +116,15 @@ public class MOnce implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
     }
 
     private void cleanUpDatastructures(){
-        this.terminators.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
-        this.buckets.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
-        this.timepointToTimestamp.keySet().removeIf(tp -> !IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp).intValue(), interval));
+        if (interval.upper().isDefined()) {
+            buckets.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+            terminators.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+            timepointToTimestamp.keySet().removeIf(tp -> timepointToTimestamp.get(tp).intValue() < largestInOrderTS - (int) interval.upper().get());
+        } else {
+            buckets.keySet().removeIf(tp -> largestInOrderTS - timepointToTimestamp.get(tp).intValue() < interval.lower());
+            terminators.keySet().removeIf(tp -> largestInOrderTS - timepointToTimestamp.get(tp).intValue() < interval.lower());
+            timepointToTimestamp.keySet().removeIf(tp -> largestInOrderTS - timepointToTimestamp.get(tp).intValue() < interval.lower());
+        }
     }
 }
 
