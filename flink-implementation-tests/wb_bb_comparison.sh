@@ -1,6 +1,7 @@
 #!/bin/env bash
 
 WORKDIR=`cd "$(dirname "$BASH_SOURCE")/.."; pwd`
+FLINK_BIN="/Users/emmahedvigpindhansen/Desktop/BA/flink/bin"
 JARPATH_BB="$WORKDIR/flink-monitor/target/flink-monitor-1.0-SNAPSHOT.jar"
 JARPATH_WB="$WORKDIR/flink-implementation/target/flink-implementation-1.0-SNAPSHOT.jar"
 MONPOLY_DIR="/Users/emmahedvigpindhansen/Desktop/BA/monpoly"
@@ -9,6 +10,7 @@ REPORT_DIR="/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink
 OUTPUT_DIR="/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation/output"
 VERDICT_FILE="$REPORT_DIR/verdicts.txt"
 SIGFILE="$DATADIR/synth.sig"
+MONPOLY_EXE="$MONPOLY_DIR/monpoly"
 
 source "/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation/config.sh"
 
@@ -25,7 +27,7 @@ REPETITIONS=1
 FLINK_QUEUE=256
 REPLAYER_QUEUE=2000
 
-STREAM_PORT=10105
+STREAM_PORT=10114
 
 # echo "$LOG_LENGTH" > "$REPORT_DIR/gen_length.txt"
 
@@ -55,7 +57,8 @@ for procs in $PROCESSORS; do
     cpulist=${procs#*/}
     echo "  $numcpus processors:"
 
-#    taskset -c $cpulist "$FLINK_BIN/start-cluster.sh" > /dev/null
+    # taskset -c $cpulist "$FLINK_BIN/start-cluster.sh" > /dev/null
+    "$FLINK_BIN/start-cluster.sh" > /dev/null
 
     for formula in $FORMULAS; do
         echo "    Evaluating $formula:"
@@ -70,14 +73,23 @@ for procs in $PROCESSORS; do
                         if [[ "$acc" = "0" ]]; then
 
                             INPUT_FILE="$OUTPUT_DIR/gen_${formula}_${er}_${ir}.csv"
+
+                            # running blackbox
+
                             JOB_NAME="gen_flink_bb_${numcpus}_${formula}_${er}_${ir}_${acc}_${i}"
                             TIME_REPORT="$REPORT_DIR/${JOB_NAME}_time_{ID}.txt"
                             BATCH_TIME_REPORT="$REPORT_DIR/${JOB_NAME}_time.txt"
                             JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
 
+                            "$WORKDIR/replayer.sh" -v -a 0 -q $REPLAYER_QUEUE -i csv -f csv -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" &
+                            time "$WORK_DIR/monitor.sh" --in localhost:$STREAM_PORT --format csv --out "$VERDICT_FILE" --monitor monpoly $MONPOLY_EXE -nonewlastts $NEGATE --sig "$DATADIR/synth.sig" --formula "$DATADIR/$formula.mfotl" --processors $numcpus --queueSize "$FLINK_QUEUE" --job "$JOB_NAME" > "$JOB_REPORT"
+
+
                             #rm -r "$VERDICT_FILE" 2> /dev/null
                            # "$TIME_COMMAND" -f "%e;%M" -o "$BATCH_TIME_REPORT" "$WORK_DIR/monitor.sh" --in localhost:$STREAM_PORT  --format csv --out "$VERDICT_FILE" --monitor monpoly --command "$TIME_COMMAND -f %e;%M -o $TIME_REPORT $MONPOLY_EXE $NEGATE" --sig "$WORK_DIR/synthetic/synth.sig" --formula "$WORK_DIR/synthetic/$formula.mfotl" --processors $numcpus --queueSize "$FLINK_QUEUE" --job "$JOB_NAME" > "$JOB_REPORT"
                             #wait
+
+                            # running whitebox
 
                             JOB_NAME="gen_flink_wb_${numcpus}_${formula}_${er}_${ir}_${acc}_${i}"
                             DELAY_REPORT="$REPORT_DIR/${JOB_NAME}_delay.txt"
@@ -85,41 +97,48 @@ for procs in $PROCESSORS; do
                             BATCH_TIME_REPORT="$REPORT_DIR/${JOB_NAME}_time.txt"
                             JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
 
+                            #"$WORKDIR/replayer.sh" -v -i csv -f monpoly -t 1000 -a 0 -q $REPLAYER_QUEUE -o localhost:"$STREAM_PORT" "$INPUT_FILE" &> "$DELAY_REPORT" &
+                            #(time scala "$JARPATH_WB" --in localhost:"$STREAM_PORT" --sig "$SIGFILE" --formula "$DATADIR/$formula.mfotl" --processors "$PROCESSORS" --out  "$VERDICT_FILE" --job "$JOB_NAME") &> "$JOB_REPORT"
+
                             #rm -r "$VERDICT_FILE" 2> /dev/null
                             #"$WORK_DIR/replayer.sh" -v -a $acc -q $REPLAYER_QUEUE -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" &
                             #scala "$JARPATH_WB" --in localhost:$STREAM_PORT --sig "$SIGFILE" --formula "$DATADIR/$formula.mfotl" --processors $numcpus --out "$VERDICT_FILE" --job "$JOB_NAME" > "$JOB_REPORT"
-                            "$WORKDIR/replayer.sh" -i csv -f monpoly -a 0 -o localhost:"$STREAM_PORT" "$INPUT_FILE" &
-                            scala "$JARPATH_WB" --in localhost:"$STREAM_PORT" --sig "$SIGFILE" --formula "$DATADIR/$formula.mfotl" --processors "$PROCESSORS" --out  "$VERDICT_FILE" --job "$JOB_NAME" > "$JOB_REPORT"
 
                         else
 
                             INPUT_FILE="$OUTPUT_DIR/gen_${formula}_${er}_${ir}.csv"
-                            #JOB_NAME="gen_flink_bb_${numcpus}_${formula}_${er}_${ir}_${acc}_${i}"
-                            #DELAY_REPORT="$REPORT_DIR/${JOB_NAME}_delay.txt"
-                            #TIME_REPORT="$REPORT_DIR/${JOB_NAME}_time_{ID}.txt"
-                            #BATCH_TIME_REPORT="$REPORT_DIR/${JOB_NAME}_time.txt"
-                            #JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
+
+                            # running black box
+
+                            JOB_NAME="gen_flink_bb_${numcpus}_${formula}_${er}_${ir}_${acc}_${i}"
+                            DELAY_REPORT="$REPORT_DIR/${JOB_NAME}_delay.txt"
+                            TIME_REPORT="$REPORT_DIR/${JOB_NAME}_time_{ID}.txt"
+                            BATCH_TIME_REPORT="$REPORT_DIR/${JOB_NAME}_time.txt"
+                            JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
+
+                            "$WORKDIR/replayer.sh" -v -a 0 -q $REPLAYER_QUEUE -i csv -f csv -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" > "$DELAY_REPORT" &
+                            time "$WORKDIR/evaluation/monitor.sh" --in localhost:$STREAM_PORT --format csv --out "$VERDICT_FILE" --monitor monpoly $MONPOLY_EXE -nonewlastts $NEGATE --sig "$DATADIR/synth.sig" --formula "$DATADIR/$formula.mfotl" --processors $numcpus --queueSize "$FLINK_QUEUE" --job "$JOB_NAME" > "$JOB_REPORT"
+                            #wait
 
                             #rm -r "$VERDICT_FILE" 2> /dev/null
                             #taskset -c $AUX_CPU_LIST "$WORK_DIR/replayer.sh" -v -a $acc -q $REPLAYER_QUEUE -i csv -f csv -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" 2> "$DELAY_REPORT" &
                            # "$TIME_COMMAND" -f "%e;%M" -o "$BATCH_TIME_REPORT" "$WORK_DIR/monitor.sh" --in localhost:$STREAM_PORT --format csv --out "$VERDICT_FILE" --monitor monpoly --command "$TIME_COMMAND -f %e;%M -o $TIME_REPORT $MONPOLY_EXE -nonewlastts $NEGATE" --sig "$WORK_DIR/synthetic/synth.sig" --formula "$WORK_DIR/synthetic/$formula.mfotl" --processors $numcpus --queueSize "$FLINK_QUEUE" --job "$JOB_NAME" > "$JOB_REPORT"
                             #wait
 
+                            # running whitebox
+
                             JOB_NAME="gen_flink_wb_${numcpus}_${formula}_${er}_${ir}_${acc}_${i}"
                             DELAY_REPORT="$REPORT_DIR/${JOB_NAME}_delay.txt"
                             TIME_REPORT="$REPORT_DIR/${JOB_NAME}_time_{ID}.txt"
                             BATCH_TIME_REPORT="$REPORT_DIR/${JOB_NAME}_time.txt"
                             JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
 
-                            #"$WORKDIR/replayer.sh" -i csv -f monpoly -a 0 -o localhost:"$PORT" "$TRACEFILE" &
-                            #scala "$JARPATH_WB" --in localhost:"$PORT" --sig "$SIGFILE" --formula "$FORMULA" --processors "$PROCESSORS" --out "$WORKDIR/flink-out" --job "monpoly-test"
-
+                            #"$WORKDIR/replayer.sh" -v -i csv -f monpoly -t 1000 -a 0 -q $REPLAYER_QUEUE -o localhost:"$STREAM_PORT" "$INPUT_FILE" &> "$DELAY_REPORT" &
+                            #(time scala "$JARPATH_WB" --in localhost:"$STREAM_PORT" --sig "$SIGFILE" --formula "$DATADIR/$formula.mfotl" --processors "$PROCESSORS" --out  "$VERDICT_FILE" --job "$JOB_NAME") &> "$JOB_REPORT"
 
                             #rm -r "$VERDICT_FILE" 2> /dev/null
-                            #"$WORK_DIR/replayer.sh" -v -a $acc -q $REPLAYER_QUEUE -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" &
-                            #scala "$JARPATH_WB" --in localhost:$STREAM_PORT --sig "$SIGFILE" --formula "$DATADIR/$formula.mfotl" --processors $numcpus --out "$VERDICT_FILE" --job "$JOB_NAME" > "$JOB_REPORT"
-                            "$WORKDIR/replayer.sh" -i csv -f monpoly -a 0 -o localhost:"$STREAM_PORT" "$INPUT_FILE" &
-                            scala "$JARPATH_WB" --in localhost:"$STREAM_PORT" --sig "$SIGFILE" --formula "$DATADIR/$formula.mfotl" --processors "$PROCESSORS" --out  "$VERDICT_FILE" --job "$JOB_NAME" > "$JOB_REPORT"
+                            #taskset -c $AUX_CPU_LIST "$WORK_DIR/replayer.sh" -v -a $acc -q $REPLAYER_QUEUE -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" 2> "$DELAY_REPORT" &
+                            #"$TIME_COMMAND" -f "%e;%M" -o "$BATCH_TIME_REPORT" "$WORK_DIR/monitor-whitebox.sh" --in localhost:$STREAM_PORT --out "$VERDICT_FILE" --formula "$WORK_DIR/synthetic/$formula.mfotl" --processors $numcpus --job "$JOB_NAME" > "$JOB_REPORT"
 
                         fi
                     done
@@ -209,6 +228,8 @@ done
 #
 #    "$FLINK_BIN/stop-cluster.sh" > /dev/null
 #done
+
+"$FLINK_BIN/stop-cluster.sh" > /dev/null
 
 end_time=$(date +%Y%m%d_%H%M%S)
 

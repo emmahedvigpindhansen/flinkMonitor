@@ -1,0 +1,12 @@
+q, tp=0, ts=0, x=25, y=17
+p, tp=1, ts=1, x=23, y=23
+q, tp=2, ts=1, x=25, y=17
+p, tp=2, ts=1, x=25, y=17
+q, tp=2, ts=1, x=1, y=1
+p, tp=2, ts=1, x=17, y=13
+p, tp=3, ts=1, x=25, y=3
+p, tp=4, ts=2, x=17, y=17
+q, tp=5, ts=3, x=25, y=3
+p, tp=6, ts=3, x=25, y=17
+p, tp=7, ts=4, x=23, y=9
+p, tp=8, ts=5, x=23, y=23

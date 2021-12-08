@@ -1,0 +1,1 @@
+(NOT p(x,y)) UNTIL [0,7) q(x,y)
