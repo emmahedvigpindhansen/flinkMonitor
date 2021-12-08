@@ -32,9 +32,6 @@ public class Init0 implements FormulaVisitor<Mformula> {
     }
 
     public Mformula visit(JavaNot<VariableID> f) {
-        System.out.println("pred : " + (f.arg() instanceof JavaPred));
-        System.out.println("not: " + (f.arg() instanceof JavaNot));
-        System.out.println("since: " + (f.arg() instanceof JavaSince));
         if(f.arg() instanceof JavaOr){
             if(((JavaOr<VariableID>) f.arg()).arg1() instanceof JavaNot){
                 ArrayList<Object> freeVarsInOrder1 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
@@ -54,9 +51,6 @@ public class Init0 implements FormulaVisitor<Mformula> {
             }else{
                 return null;
             }
-        //} else if (f.arg() instanceof JavaPred){
-          //  JavaPred<VariableID>
-            //(f.arg()).arg().accept(new Init0(this.fvio));
         } else {
             return null;
         }
@@ -79,7 +73,7 @@ public class Init0 implements FormulaVisitor<Mformula> {
             ArrayList<Object> freeVarsInOrder2 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
             boolean isSubset = freeVarsInOrder1.containsAll(freeVarsInOrder2);
             if(arg2 instanceof JavaNot && isSubset){
-                return new MAnd(arg1.accept(new Init0(this.fvio)), false, arg2.accept(new Init0(this.fvio)), indexOfCommonKey);
+                return new MAnd(arg1.accept(new Init0(this.fvio)), false, ((JavaNot<VariableID>) f.arg2()).arg().accept(new Init0(this.fvio)), indexOfCommonKey);
             }else{
                 return null;
             }

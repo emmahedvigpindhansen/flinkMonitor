@@ -87,13 +87,26 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
                 mbuf2.fst().put(event.getTimepoint(), Table.one(event.get()));
             }
 
-            if (mbuf2.snd.containsKey(event.getTimepoint()) && !this.mbuf2.snd.get(event.getTimepoint()).isEmpty()) { //maybe it only contains a terminator :(
-                for (Assignment rhs : this.mbuf2.snd.get(event.getTimepoint())) {
-                    Optional<Assignment> joinResult = join1(event.get(), rhs, 0);
-                    if (joinResult.isPresent()) {
-                        PipelineEvent result = PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), joinResult.get());
-                        collector.collect(result);
+            if (bool) {
+                if (mbuf2.snd.containsKey(event.getTimepoint())) {
+                    for (Assignment lhs : this.mbuf2.snd.get(event.getTimepoint())) {
+                        Optional<Assignment> joinResult = join1(event.get(), lhs, 0);
+                        if (joinResult.isPresent()) {
+                            PipelineEvent result = PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), joinResult.get());
+                            collector.collect(result);
+                        }
                     }
+                }
+            }
+            // if received all terminators for not event - output this event directly if no match
+            if (!bool && terminatorRHS.contains(event.getTimepoint())) {
+                if (mbuf2.snd.containsKey(event.getTimepoint())) {
+                    Table result = Table.join(Table.one(event.get()), bool, mbuf2.snd.get(event.getTimepoint()));
+                    if (!result.isEmpty()) {
+                        collector.collect(event);
+                    }
+                } else {
+                    collector.collect(event);
                 }
             }
         }
@@ -117,6 +130,24 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
                     terminatorRHS.add(event.getTimepoint());
                 }
             }
+            // if received all terminators for not event - output satisfactions
+            if (!bool && terminatorRHS.contains(event.getTimepoint())) {
+                if (mbuf2.fst.containsKey(event.getTimepoint())) {
+                    if (mbuf2.snd.containsKey(event.getTimepoint())) {
+                        Table result = Table.join(mbuf2.fst.get(event.getTimepoint()), bool, mbuf2.snd.get(event.getTimepoint()));
+                        if (!result.isEmpty()) {
+                            for (Assignment assignment : result) {
+                                collector.collect(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), assignment));
+                            }
+                        }
+                    } else {
+                        for (Assignment assignment : mbuf2.fst.get(event.getTimepoint())) {
+                            collector.collect(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), assignment));
+                        }
+                    }
+                }
+            }
+
             // Only one terminator needs to be output
             if(terminatorLHS.contains(event.getTimepoint()) && terminatorRHS.contains(event.getTimepoint())){
                 collector.collect(event);
@@ -132,12 +163,14 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
                 mbuf2.snd().put(event.getTimepoint(), Table.one(event.get()));
             }
 
-            if (mbuf2.fst.containsKey(event.getTimepoint()) && !this.mbuf2.fst.get(event.getTimepoint()).isEmpty()) {
-                for (Assignment lhs : this.mbuf2.fst.get(event.getTimepoint())) {
-                    Optional<Assignment> joinResult = join1(event.get(), lhs, 0);
-                    if (joinResult.isPresent()) {
-                        PipelineEvent result = PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), joinResult.get());
-                        collector.collect(result);
+            if (bool) {
+                if (mbuf2.fst.containsKey(event.getTimepoint())) {
+                    for (Assignment lhs : this.mbuf2.fst.get(event.getTimepoint())) {
+                        Optional<Assignment> joinResult = join1(event.get(), lhs, 0);
+                        if (joinResult.isPresent()) {
+                            PipelineEvent result = PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), joinResult.get());
+                            collector.collect(result);
+                        }
                     }
                 }
             }
