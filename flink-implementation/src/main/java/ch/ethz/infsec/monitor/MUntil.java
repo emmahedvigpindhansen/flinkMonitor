@@ -80,42 +80,45 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                 mbuf2.fst().put(event.getTimepoint(), Table.one(event.get()));
             }
 
-            // see if satisfaction at next timepoint - output if join result
-            Long tp = event.getTimepoint() + 1L;
-            if (this.satisfactions.containsKey(tp)) {
-                Table evalSet = this.satisfactions.get(tp);
-                Table result = Table.join(Table.one(event.get()), pos, evalSet);
-                if (!result.isEmpty()) {
-                    for (Assignment assignment: result) {
-                        collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
-                        if (satisfactions.containsKey(tp)) {
-                            satisfactions.get(tp).add(assignment);
-                        } else {
-                            satisfactions.put(tp, Table.one(assignment));
-                        }
-                    }
-                    // search left in mbuf2 for consecutive (non-outputted) assignments
-                    Long tp2 = event.getTimepoint() - 1L;
-                    while (mbuf2.fst.containsKey(tp2)
-                            && IntervalCondition.mem2(event.getTimestamp() - this.timepointToTimestamp.get(tp2), interval)) {
-                        Table evalSet2 = this.mbuf2.fst.get(tp2);
-                        Table result2 = Table.join(evalSet2, pos, result);
-                        if (!result2.isEmpty()) {
-                            for (Assignment assignment2 : result2) {
-                                collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp2), tp2, assignment2));
-                                if (satisfactions.containsKey(tp2)) {
-                                    satisfactions.get(tp2).add(assignment2);
-                                } else {
-                                    satisfactions.put(tp2, Table.one(assignment2));
-                                }
+            if (this.pos) {
+                // see if satisfaction at next timepoint - output if join result
+                Long tp = event.getTimepoint() + 1L;
+                if (this.satisfactions.containsKey(tp)) {
+                    Table evalSet = this.satisfactions.get(tp);
+                    Table result = Table.join(Table.one(event.get()), pos, evalSet);
+                    if (!result.isEmpty()) {
+                        for (Assignment assignment: result) {
+                            collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
+                            if (satisfactions.containsKey(tp)) {
+                                satisfactions.get(tp).add(assignment);
+                            } else {
+                                satisfactions.put(tp, Table.one(assignment));
                             }
-                            tp2 -= 1L;
-                        } else {
-                            break;
+                        }
+                        // search left in mbuf2 for consecutive (non-outputted) assignments
+                        Long tp2 = event.getTimepoint() - 1L;
+                        while (mbuf2.fst.containsKey(tp2)
+                                && IntervalCondition.mem2(event.getTimestamp() - this.timepointToTimestamp.get(tp2), interval)) {
+                            Table evalSet2 = this.mbuf2.fst.get(tp2);
+                            Table result2 = Table.join(evalSet2, pos, result);
+                            if (!result2.isEmpty()) {
+                                for (Assignment assignment2 : result2) {
+                                    collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp2), tp2, assignment2));
+                                    if (satisfactions.containsKey(tp2)) {
+                                        satisfactions.get(tp2).add(assignment2);
+                                    } else {
+                                        satisfactions.put(tp2, Table.one(assignment2));
+                                    }
+                                }
+                                tp2 -= 1L;
+                            } else {
+                                break;
+                            }
                         }
                     }
                 }
             }
+
         } else {
             if (!terminatorCount1.containsKey(event.getTimepoint())) {
                 terminatorCount1.put(event.getTimepoint(), 1);
@@ -129,6 +132,27 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             while(terminLeft.containsKey(largestInOrderTP + 1L) && terminRight.containsKey(largestInOrderTP + 1L)){
                 largestInOrderTP++;
                 largestInOrderTS = terminLeft.get(largestInOrderTP);
+                if (!pos) {
+                    if (mbuf2.snd.containsKey(largestInOrderTP)) {
+                        for (Assignment beta : mbuf2.snd.get(largestInOrderTP)) {
+                            Long tp = largestInOrderTP;
+                            while (timepointToTimestamp.containsKey(tp)
+                                    && IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
+                                if (mbuf2.fst.containsKey(tp)) {
+                                    Table result = Table.join(Table.one(beta), pos, mbuf2.fst.get(tp));
+                                    if (!result.isEmpty()) {
+                                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
+                                    } else {
+                                        break;
+                                    }
+                                } else {
+                                    collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
+                                }
+                                tp -= 1L;
+                            }
+                        }
+                    }
+                }
                 // output terminator
                 PipelineEvent terminator = PipelineEvent.terminator(terminLeft.get(largestInOrderTP), largestInOrderTP);
                 collector.collect(terminator);
@@ -151,33 +175,35 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                 mbuf2.snd().put(event.getTimepoint(), Table.one(event.get()));
             }
 
-            // always add beta to satisfactions
-            if (satisfactions.containsKey(event.getTimepoint())){
-                satisfactions.get(event.getTimepoint()).add(event.get());
-            } else {
-                satisfactions.put(event.getTimepoint(), Table.one(event.get()));
-            }
-            collector.collect(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), event.get()));
+            if (this.pos) {
+                // always add beta to satisfactions
+                if (satisfactions.containsKey(event.getTimepoint())){
+                    satisfactions.get(event.getTimepoint()).add(event.get());
+                } else {
+                    satisfactions.put(event.getTimepoint(), Table.one(event.get()));
+                }
+                collector.collect(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), event.get()));
 
-            // if alfa (publish) received before beta (approve), check if alfa should be output
-            // (search mbuf2 left)
-            Long tp = event.getTimepoint() - 1L;
-            while (mbuf2.fst.containsKey(tp)
-                    && IntervalCondition.mem2(event.getTimestamp() - this.timepointToTimestamp.get(tp), interval)) {
-                // check that assignments match
-                Table result = Table.join(Table.one(event.get()), pos, mbuf2.fst.get(tp));
-                if (!result.isEmpty()) { // will result always only contain one entry?
-                    for (Assignment assignment: result) {
-                        collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
-                        if (satisfactions.containsKey(tp)) {
-                            satisfactions.get(tp).add(assignment);
-                        } else {
-                            satisfactions.put(tp, Table.one(assignment));
+                // if alfa (publish) received before beta (approve), check if alfa should be output
+                // (search mbuf2 left)
+                Long tp = event.getTimepoint() - 1L;
+                while (mbuf2.fst.containsKey(tp)
+                        && IntervalCondition.mem2(event.getTimestamp() - this.timepointToTimestamp.get(tp), interval)) {
+                    // check that assignments match
+                    Table result = Table.join(Table.one(event.get()), pos, mbuf2.fst.get(tp));
+                    if (!result.isEmpty()) { // will result always only contain one entry?
+                        for (Assignment assignment: result) {
+                            collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
+                            if (satisfactions.containsKey(tp)) {
+                                satisfactions.get(tp).add(assignment);
+                            } else {
+                                satisfactions.put(tp, Table.one(assignment));
+                            }
                         }
+                        tp -= 1L;
+                    } else { // break if no join result in any assignments (only want consecutive assignments)
+                        break;
                     }
-                    tp -= 1L;
-                } else { // break if no join result in any assignments (only want consecutive assignments)
-                    break;
                 }
             }
 
@@ -191,10 +217,31 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             if ((terminatorCount2.get(event.getTimepoint()).equals(this.formula2.getNumberProcessors()))) {
                 terminRight.put(event.getTimepoint(), event.getTimestamp());
             }
-            // update startEvalTimestamp in order to clean up datastructures
+            // update largestInOrderTP in order to clean up datastructures
             while (terminLeft.containsKey(largestInOrderTP + 1L) && terminRight.containsKey(largestInOrderTP + 1L)) {
                 largestInOrderTP++;
                 largestInOrderTS = terminLeft.get(largestInOrderTP);
+                if (!pos) {
+                    if (mbuf2.snd.containsKey(largestInOrderTP)) {
+                        for (Assignment beta : mbuf2.snd.get(largestInOrderTP)) {
+                            Long tp = largestInOrderTP;
+                            while (timepointToTimestamp.containsKey(tp)
+                                    && IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
+                                if (mbuf2.fst.containsKey(tp)) {
+                                    Table result = Table.join(Table.one(beta), pos, mbuf2.fst.get(tp));
+                                    if (!result.isEmpty()) {
+                                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
+                                    } else {
+                                        break;
+                                    }
+                                } else {
+                                    collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
+                                }
+                                tp -= 1L;
+                            }
+                        }
+                    }
+                }
                 // output terminator
                 PipelineEvent terminator = PipelineEvent.terminator(terminLeft.get(largestInOrderTP), largestInOrderTP);
                 collector.collect(terminator);

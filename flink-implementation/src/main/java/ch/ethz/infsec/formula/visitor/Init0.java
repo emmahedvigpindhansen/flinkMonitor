@@ -145,7 +145,6 @@ public class Init0 implements FormulaVisitor<Mformula> {
         }else{
             if((f.arg1()) instanceof JavaNot){
                 return new MSince(false,
-                        //(f.arg1()).accept(new Init0(this.fvio)),
                         ((JavaNot<VariableID>) f.arg1()).arg().accept(new Init0(this.fvio)),
                         f.interval(),
                         (f.arg2()).accept(new Init0(this.fvio)),
@@ -174,7 +173,7 @@ public class Init0 implements FormulaVisitor<Mformula> {
         }else{
             if((f.arg1()) instanceof JavaNot){
                 return new MUntil(false,
-                        (f.arg1()).accept(new Init0(this.fvio)),
+                        ((JavaNot<VariableID>) f.arg1()).arg().accept(new Init0(this.fvio)),
                         f.interval(),
                         (f.arg2()).accept(new Init0(this.fvio)),
                         indexOfCommonKey);
