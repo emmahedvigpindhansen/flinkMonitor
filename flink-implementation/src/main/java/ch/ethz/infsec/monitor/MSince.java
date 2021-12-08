@@ -138,11 +138,9 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                         if (IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
                             for (Assignment beta : mbuf2.snd.get(tp)) {
                                 if (mbuf2.fst.containsKey(largestInOrderTP)) {
-                                    for (Assignment alfa : mbuf2.fst.get(largestInOrderTP)) {
-                                        Optional<Assignment> result = Table.join1(alfa, beta, 0);
-                                        if (!result.isPresent()) {
-                                            collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
-                                        }
+                                    Table result = Table.join(Table.one(beta), pos, mbuf2.fst.get(largestInOrderTP));
+                                    if (!result.isEmpty()) {
+                                        collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
                                     }
                                 } else {
                                     collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
@@ -226,11 +224,9 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                         if (IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
                             for (Assignment beta : mbuf2.snd.get(tp)) {
                                 if (mbuf2.fst.containsKey(largestInOrderTP)) {
-                                    for (Assignment alfa : mbuf2.fst.get(largestInOrderTP)) {
-                                        Optional<Assignment> result = Table.join1(alfa, beta, 0);
-                                        if (!result.isPresent()) {
-                                            collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
-                                        }
+                                    Table result = Table.join(Table.one(beta), pos, mbuf2.fst.get(largestInOrderTP));
+                                    if (!result.isEmpty()) {
+                                        collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
                                     }
                                 } else {
                                     collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
