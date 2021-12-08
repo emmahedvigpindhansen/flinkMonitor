@@ -1,6 +1,7 @@
 package ch.ethz.infsec.formula.visitor;
 import ch.ethz.infsec.policy.*;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.kafka.common.utils.Java;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
 import java.util.*;
@@ -31,7 +32,9 @@ public class Init0 implements FormulaVisitor<Mformula> {
     }
 
     public Mformula visit(JavaNot<VariableID> f) {
-        // check that this is the right way to handle keys in Not case
+        System.out.println("pred : " + (f.arg() instanceof JavaPred));
+        System.out.println("not: " + (f.arg() instanceof JavaNot));
+        System.out.println("since: " + (f.arg() instanceof JavaSince));
         if(f.arg() instanceof JavaOr){
             if(((JavaOr<VariableID>) f.arg()).arg1() instanceof JavaNot){
                 ArrayList<Object> freeVarsInOrder1 = new ArrayList<>(JavaConverters.seqAsJavaList(f.freeVariablesInOrder()));
@@ -51,11 +54,12 @@ public class Init0 implements FormulaVisitor<Mformula> {
             }else{
                 return null;
             }
-        }else{
+        //} else if (f.arg() instanceof JavaPred){
+          //  JavaPred<VariableID>
+            //(f.arg()).arg().accept(new Init0(this.fvio));
+        } else {
             return null;
         }
-
-
     }
 
     public Mformula visit(JavaAnd<VariableID> f) {
@@ -141,7 +145,8 @@ public class Init0 implements FormulaVisitor<Mformula> {
         }else{
             if((f.arg1()) instanceof JavaNot){
                 return new MSince(false,
-                        (f.arg1()).accept(new Init0(this.fvio)),
+                        //(f.arg1()).accept(new Init0(this.fvio)),
+                        ((JavaNot<VariableID>) f.arg1()).arg().accept(new Init0(this.fvio)),
                         f.interval(),
                         (f.arg2()).accept(new Init0(this.fvio)),
                         indexOfCommonKey);

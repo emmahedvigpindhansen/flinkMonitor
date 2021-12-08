@@ -1,5 +1,6 @@
 package ch.ethz.infsec.monitor;
 
+import javafx.scene.control.Tab;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.co.CoFlatMapFunction;
 import org.apache.flink.util.Collector;
@@ -65,8 +66,6 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
     @Override
     public void flatMap1(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
 
-        System.out.println("incoming 1 : " + event.toString());
-
         if(!timepointToTimestamp.containsKey(event.getTimepoint())){
             timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
         }
@@ -79,38 +78,40 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                 mbuf2.fst().put(event.getTimepoint(), Table.one(event.get()));
             }
 
-            // see if satisfaction at previous timepoint
-            Long tp = event.getTimepoint() - 1L;
-            if (this.satisfactions.containsKey(tp)) {
-                Table evalSet = this.satisfactions.get(tp);
-                Table result = Table.join(Table.one(event.get()), pos, evalSet);
-                if (!result.isEmpty()) {
-                    for (Assignment assignment: result) {
-                        collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
-                        if (satisfactions.containsKey(tp)) {
-                            satisfactions.get(tp).add(assignment);
-                        } else {
-                            satisfactions.put(tp, Table.one(assignment));
-                        }
-                    }
-                    // search right in mbuf2 for consecutive (non-outputted) assignments
-                    Long tp2 = event.getTimepoint() + 1L;
-                    while (mbuf2.fst.containsKey(tp2)
-                            && IntervalCondition.mem2(this.timepointToTimestamp.get(tp2) - event.getTimestamp(), interval)) {
-                        Table evalSet2 = this.mbuf2.fst.get(tp2);
-                        Table result2 = Table.join(evalSet2, pos, result);
-                        if (!result2.isEmpty()) {
-                            for (Assignment assignment2 : result2) {
-                                collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp2), tp2, assignment2));
-                                if (satisfactions.containsKey(tp2)) {
-                                    satisfactions.get(tp2).add(assignment2);
-                                } else {
-                                    satisfactions.put(tp2, Table.one(assignment2));
-                                }
+            if (this.pos) {
+                // see if satisfaction at previous timepoint
+                Long tp = event.getTimepoint() - 1L;
+                if (this.satisfactions.containsKey(tp)) {
+                    Table evalSet = this.satisfactions.get(tp);
+                    Table result = Table.join(Table.one(event.get()), pos, evalSet);
+                    if (!result.isEmpty()) {
+                        for (Assignment assignment: result) {
+                            collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
+                            if (satisfactions.containsKey(tp)) {
+                                satisfactions.get(tp).add(assignment);
+                            } else {
+                                satisfactions.put(tp, Table.one(assignment));
                             }
-                            tp2 += 1L;
-                        } else {
-                            break;
+                        }
+                        // search right in mbuf2 for consecutive (non-outputted) assignments
+                        Long tp2 = event.getTimepoint() + 1L;
+                        while (mbuf2.fst.containsKey(tp2)
+                                && IntervalCondition.mem2(this.timepointToTimestamp.get(tp2) - event.getTimestamp(), interval)) {
+                            Table evalSet2 = this.mbuf2.fst.get(tp2);
+                            Table result2 = Table.join(evalSet2, pos, result);
+                            if (!result2.isEmpty()) {
+                                for (Assignment assignment2 : result2) {
+                                    collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp2), tp2, assignment2));
+                                    if (satisfactions.containsKey(tp2)) {
+                                        satisfactions.get(tp2).add(assignment2);
+                                    } else {
+                                        satisfactions.put(tp2, Table.one(assignment2));
+                                    }
+                                }
+                                tp2 += 1L;
+                            } else {
+                                break;
+                            }
                         }
                     }
                 }
@@ -127,9 +128,29 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             if ((terminatorCount1.get(event.getTimepoint()).equals(this.formula1.getNumberProcessors()))) {
                 terminLeft.put(event.getTimepoint(), event.getTimestamp());
             }
+
             while(terminLeft.containsKey(largestInOrderTP + 1L) && terminRight.containsKey(largestInOrderTP + 1L)){
                 largestInOrderTP++;
                 largestInOrderTS = terminLeft.get(largestInOrderTP);
+                if (!pos) {
+                    // loop through beta events - output if not received corresponding alfa event at this tp
+                    for (Long tp : mbuf2.snd.keySet()) {
+                        if (IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
+                            for (Assignment beta : mbuf2.snd.get(tp)) {
+                                if (mbuf2.fst.containsKey(largestInOrderTP)) {
+                                    for (Assignment alfa : mbuf2.fst.get(largestInOrderTP)) {
+                                        Optional<Assignment> result = Table.join1(alfa, beta, 0);
+                                        if (!result.isPresent()) {
+                                            collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
+                                        }
+                                    }
+                                } else {
+                                    collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
+                                }
+                            }
+                        }
+                    }
+                }
                 // output terminator
                 PipelineEvent terminator = PipelineEvent.terminator(terminLeft.get(largestInOrderTP), largestInOrderTP);
                 collector.collect(terminator);
@@ -141,8 +162,6 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
 
     @Override
     public void flatMap2(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
-
-        System.out.println("incoming 2 : " + event.toString());
 
         if(!timepointToTimestamp.containsKey(event.getTimepoint())){
             timepointToTimestamp.put(event.getTimepoint(), event.getTimestamp());
@@ -156,33 +175,35 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                 mbuf2.snd().put(event.getTimepoint(), Table.one(event.get()));
             }
 
-            // always add beta to satisfactions
-            if(satisfactions.containsKey(event.getTimepoint())){
-                satisfactions.get(event.getTimepoint()).add(event.get());
-            }else{
-                satisfactions.put(event.getTimepoint(), Table.one(event.get()));
-            }
-            collector.collect(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), event.get()));
+            if (this.pos) {
+                // always add beta to satisfactions
+                if(satisfactions.containsKey(event.getTimepoint())){
+                    satisfactions.get(event.getTimepoint()).add(event.get());
+                }else{
+                    satisfactions.put(event.getTimepoint(), Table.one(event.get()));
+                }
+                collector.collect(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(), event.get()));
 
-            // if alfa (publish) received before beta (approve), check if alfa should be output
-            // (search mbuf2 right)
-            Long tp = event.getTimepoint() + 1L;
-            while (mbuf2.fst.containsKey(tp)
-                    && IntervalCondition.mem2(this.timepointToTimestamp.get(tp) - event.getTimestamp(), interval)) {
-                // check that assignments match
-                Table result = Table.join(Table.one(event.get()), pos, mbuf2.fst.get(tp));
-                if (!result.isEmpty()) { // will result always only contain one entry?
-                    for (Assignment assignment: result) {
-                        collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
-                        if (satisfactions.containsKey(tp)) {
-                            satisfactions.get(tp).add(assignment);
-                        } else {
-                            satisfactions.put(tp, Table.one(assignment));
+                // if alfa (publish) received before beta (approve), check if alfa should be output
+                // (search mbuf2 right)
+                Long tp = event.getTimepoint() + 1L;
+                while (mbuf2.fst.containsKey(tp)
+                        && IntervalCondition.mem2(this.timepointToTimestamp.get(tp) - event.getTimestamp(), interval)) {
+                    // check that assignments match
+                    Table result = Table.join(Table.one(event.get()), pos, mbuf2.fst.get(tp));
+                    if (!result.isEmpty()) { // will result always only contain one entry?
+                        for (Assignment assignment: result) {
+                            collector.collect(PipelineEvent.event(this.timepointToTimestamp.get(tp), tp, assignment));
+                            if (satisfactions.containsKey(tp)) {
+                                satisfactions.get(tp).add(assignment);
+                            } else {
+                                satisfactions.put(tp, Table.one(assignment));
+                            }
                         }
+                        tp += 1L;
+                    } else { // break if no join result in any assignments (only want consecutive assignments)
+                        break;
                     }
-                    tp += 1L;
-                } else { // break if no join result in any assignments (only want consecutive assignments)
-                    break;
                 }
             }
 
@@ -199,6 +220,25 @@ public class MSince implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
             while (terminLeft.containsKey(largestInOrderTP + 1L) && terminRight.containsKey(largestInOrderTP + 1L)) {
                 largestInOrderTP++;
                 largestInOrderTS = terminLeft.get(largestInOrderTP);
+                if (!pos) {
+                    // loop through beta events - output if not received corresponding alfa event at this tp
+                    for (Long tp : mbuf2.snd.keySet()) {
+                        if (IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
+                            for (Assignment beta : mbuf2.snd.get(tp)) {
+                                if (mbuf2.fst.containsKey(largestInOrderTP)) {
+                                    for (Assignment alfa : mbuf2.fst.get(largestInOrderTP)) {
+                                        Optional<Assignment> result = Table.join1(alfa, beta, 0);
+                                        if (!result.isPresent()) {
+                                            collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
+                                        }
+                                    }
+                                } else {
+                                    collector.collect(PipelineEvent.event(largestInOrderTS, largestInOrderTP, beta));
+                                }
+                            }
+                        }
+                    }
+                }
                 // output terminator
                 PipelineEvent terminator = PipelineEvent.terminator(terminLeft.get(largestInOrderTP), largestInOrderTP);
                 collector.collect(terminator);
