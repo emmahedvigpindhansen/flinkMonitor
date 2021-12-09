@@ -1,7 +1,5 @@
 #!/bin/bash
 
-PROCESSORS=2
-
 WORKDIR=`cd "$(dirname "$BASH_SOURCE")/.."; pwd`
 JARPATH_WB="$WORKDIR/flink-implementation/target/flink-implementation-1.0-SNAPSHOT.jar"
 TEST_DIR="$WORKDIR/flink-implementation-tests"
@@ -11,6 +9,7 @@ MFORMULA_DIR="$WORKDIR/flink-implementation-tests/mformulas"
 SIG_DIR="$WORKDIR/flink-implementation-tests/sigs"
 OUTPUT_DIR="$WORKDIR/flink-implementation-tests/output"
 PORT=10106
+PROCESSORS=2
 
 echo "Test script to compare white-box monitor output to MonPoly reference output."
 
@@ -30,15 +29,6 @@ compare() {
   else
     echo "=== Test failed ==="
   fi
-}
-
-test() {
-  for formula in $FORMULAS; do
-    echo "=== Evaluating $formula ==="
-    run_monpoly "$1" "$2" "$3"
-    run_wb "$4"
-    compare
-  done
 }
 
 echo "Testing Not binary cases..."
