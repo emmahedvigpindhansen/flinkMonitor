@@ -136,17 +136,18 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                     if (mbuf2.snd.containsKey(largestInOrderTP)) {
                         for (Assignment beta : mbuf2.snd.get(largestInOrderTP)) {
                             Long tp = largestInOrderTP;
-                            while (timepointToTimestamp.containsKey(tp)
-                                    && IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
-                                if (mbuf2.fst.containsKey(tp)) {
-                                    Table result = Table.join(Table.one(beta), pos, mbuf2.fst.get(tp));
-                                    if (!result.isEmpty()) {
-                                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
+                            while (timepointToTimestamp.containsKey(tp)) {
+                                if (IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
+                                    if (mbuf2.fst.containsKey(tp)) {
+                                        Table result = Table.join(Table.one(beta), pos, mbuf2.fst.get(tp));
+                                        if (!result.isEmpty()) {
+                                            collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
+                                        } else {
+                                            break;
+                                        }
                                     } else {
-                                        break;
+                                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
                                     }
-                                } else {
-                                    collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
                                 }
                                 tp -= 1L;
                             }
@@ -225,17 +226,18 @@ public class MUntil implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeli
                     if (mbuf2.snd.containsKey(largestInOrderTP)) {
                         for (Assignment beta : mbuf2.snd.get(largestInOrderTP)) {
                             Long tp = largestInOrderTP;
-                            while (timepointToTimestamp.containsKey(tp)
-                                    && IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
-                                if (mbuf2.fst.containsKey(tp)) {
-                                    Table result = Table.join(Table.one(beta), pos, mbuf2.fst.get(tp));
-                                    if (!result.isEmpty()) {
-                                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
+                            while (timepointToTimestamp.containsKey(tp)) {
+                                if (IntervalCondition.mem2(largestInOrderTS - timepointToTimestamp.get(tp), interval)) {
+                                    if (mbuf2.fst.containsKey(tp)) {
+                                        Table result = Table.join(Table.one(beta), pos, mbuf2.fst.get(tp));
+                                        if (!result.isEmpty()) {
+                                            collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
+                                        } else {
+                                            break;
+                                        }
                                     } else {
-                                        break;
+                                        collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
                                     }
-                                } else {
-                                    collector.collect(PipelineEvent.event(timepointToTimestamp.get(tp), tp, beta));
                                 }
                                 tp -= 1L;
                             }
