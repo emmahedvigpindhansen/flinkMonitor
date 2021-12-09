@@ -1,0 +1,1 @@
+(NOT publish(x)) SINCE(0,7] (publish(x) AND approve(x))
