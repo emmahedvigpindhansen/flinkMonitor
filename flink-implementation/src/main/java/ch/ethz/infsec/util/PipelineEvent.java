@@ -82,9 +82,9 @@ public class PipelineEvent implements Serializable {
     @Override
     public String toString() {
         if (isTerminator()) {
-            return "@" + timestamp + " : " + timepoint;
+            return "@" + timestamp + ". (time point : " + timepoint + ")";
         } else {
-            return "@" + timestamp + " : " + timepoint + " " + assignment.toString();
+            return "@" + timestamp + ". (time point " + timepoint + "): " + assignment.toString();
         }
     }
 
