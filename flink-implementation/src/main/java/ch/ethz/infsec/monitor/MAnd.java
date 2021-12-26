@@ -11,31 +11,30 @@ import ch.ethz.infsec.monitor.visitor.*;
 
 import static ch.ethz.infsec.util.Table.join1;
 
-public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, PipelineEvent, PipelineEvent> {
+public class  MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, PipelineEvent, PipelineEvent> {
 
     boolean bool;
-    public Mformula op1;
-    public Mformula op2;
+    public Mformula formula1;
+    public Mformula formula2;
     public Integer indexOfCommonKey;
     Tuple<HashMap<Long, Table>,HashMap<Long, Table>> mbuf2;
-    HashSet<Long> terminatorLHS;
-    HashSet<Long> terminatorRHS;
-    HashMap<Long, Integer> terminatorCount1;
-    HashMap<Long, Integer> terminatorCount2;
+    HashSet<Long> terminatorsLHS;
+    HashSet<Long> terminatorsRHS;
+    HashMap<Long, Integer> terminatorCountLHS;
+    HashMap<Long, Integer> terminatorCountRHS;
     Integer numberProcessors;
-
 
     public MAnd(Mformula arg1, boolean bool, Mformula arg2, Integer indexOfCommonKey) {
         this.bool = bool;
-        this.op1 = arg1;
-        this.op2 = arg2;
+        this.formula1 = arg1;
+        this.formula2 = arg2;
         this.indexOfCommonKey = indexOfCommonKey;
 
         this.mbuf2 = new Tuple<>(new HashMap<>(), new HashMap<>());
-        terminatorLHS = new HashSet<>();
-        terminatorRHS = new HashSet<>();
-        this.terminatorCount1 = new HashMap<>();
-        this.terminatorCount2 = new HashMap<>();
+        terminatorsLHS = new HashSet<>();
+        terminatorsRHS = new HashSet<>();
+        this.terminatorCountLHS = new HashMap<>();
+        this.terminatorCountRHS = new HashMap<>();
     }
 
     @Override
@@ -56,28 +55,25 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
     @Override
     public void flatMap1(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
 
-        //here we have a streaming implementation. We can produce an output potentially for every event.
-        //We don't buffer events until we receive a terminator event, contrary to what the Verimon algorithm does.
-
         if(!event.isPresent()){
 
-            if (!terminatorCount1.containsKey(event.getTimepoint())) {
-                terminatorCount1.put(event.getTimepoint(), 1);
+            if (!terminatorCountLHS.containsKey(event.getTimepoint())) {
+                terminatorCountLHS.put(event.getTimepoint(), 1);
             } else {
-                terminatorCount1.put(event.getTimepoint(), terminatorCount1.get(event.getTimepoint()) + 1);
+                terminatorCountLHS.put(event.getTimepoint(), terminatorCountLHS.get(event.getTimepoint()) + 1);
             }
             // only add terminator to LHS when received correct amount
-            if (terminatorCount1.containsKey(event.getTimepoint())) {
-                if (terminatorCount1.get(event.getTimepoint()).equals(this.op1.getNumberProcessors())) {
-                    terminatorLHS.add(event.getTimepoint());
+            if (terminatorCountLHS.containsKey(event.getTimepoint())) {
+                if (terminatorCountLHS.get(event.getTimepoint()).equals(this.formula1.getNumberProcessors())) {
+                    terminatorsLHS.add(event.getTimepoint());
                 }
             }
 
             // Only one terminator needs to be output
-            if(terminatorLHS.contains(event.getTimepoint()) && terminatorRHS.contains(event.getTimepoint())){
+            if(terminatorsLHS.contains(event.getTimepoint()) && terminatorsRHS.contains(event.getTimepoint())){
                 collector.collect(event);
-                terminatorRHS.remove(event.getTimepoint());
-                terminatorLHS.remove(event.getTimepoint());
+                terminatorsRHS.remove(event.getTimepoint());
+                terminatorsLHS.remove(event.getTimepoint());
             }
 
         } else {
@@ -99,7 +95,7 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
                 }
             }
             // if received all terminators for not event - output this event directly if no match
-            if (!bool && terminatorRHS.contains(event.getTimepoint())) {
+            if (!bool && terminatorsRHS.contains(event.getTimepoint())) {
                 if (mbuf2.snd.containsKey(event.getTimepoint())) {
                     Table result = Table.join(Table.one(event.get()), bool, mbuf2.snd.get(event.getTimepoint()));
                     if (!result.isEmpty()) {
@@ -114,24 +110,23 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
 
     @Override
     public void flatMap2(PipelineEvent event, Collector<PipelineEvent> collector) throws Exception {
-        //one terminator event has to be sent out once it is received on both incoming streams
 
         if(!event.isPresent()){
 
-            if (!terminatorCount2.containsKey(event.getTimepoint())) {
-                terminatorCount2.put(event.getTimepoint(), 1);
+            if (!terminatorCountRHS.containsKey(event.getTimepoint())) {
+                terminatorCountRHS.put(event.getTimepoint(), 1);
             } else {
-                terminatorCount2.put(event.getTimepoint(), terminatorCount2.get(event.getTimepoint()) + 1);
+                terminatorCountRHS.put(event.getTimepoint(), terminatorCountRHS.get(event.getTimepoint()) + 1);
             }
 
             // only add terminator to RHS when received correct amount
-            if (terminatorCount2.containsKey(event.getTimepoint())) {
-                if (terminatorCount2.get(event.getTimepoint()).equals(this.op2.getNumberProcessors())) {
-                    terminatorRHS.add(event.getTimepoint());
+            if (terminatorCountRHS.containsKey(event.getTimepoint())) {
+                if (terminatorCountRHS.get(event.getTimepoint()).equals(this.formula2.getNumberProcessors())) {
+                    terminatorsRHS.add(event.getTimepoint());
                 }
             }
             // if received all terminators for not event - output satisfactions
-            if (!bool && terminatorRHS.contains(event.getTimepoint())) {
+            if (!bool && terminatorsRHS.contains(event.getTimepoint())) {
                 if (mbuf2.fst.containsKey(event.getTimepoint())) {
                     if (mbuf2.snd.containsKey(event.getTimepoint())) {
                         Table result = Table.join(mbuf2.fst.get(event.getTimepoint()), bool, mbuf2.snd.get(event.getTimepoint()));
@@ -149,10 +144,10 @@ public class MAnd implements Mformula, CoFlatMapFunction<PipelineEvent, Pipeline
             }
 
             // Only one terminator needs to be output
-            if(terminatorLHS.contains(event.getTimepoint()) && terminatorRHS.contains(event.getTimepoint())){
+            if(terminatorsLHS.contains(event.getTimepoint()) && terminatorsRHS.contains(event.getTimepoint())){
                 collector.collect(event);
-                terminatorRHS.remove(event.getTimepoint());
-                terminatorLHS.remove(event.getTimepoint());
+                terminatorsRHS.remove(event.getTimepoint());
+                terminatorsLHS.remove(event.getTimepoint());
             }
 
         }else {

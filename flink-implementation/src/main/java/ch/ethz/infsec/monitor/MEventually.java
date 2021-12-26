@@ -11,9 +11,8 @@ import ch.ethz.infsec.monitor.visitor.*;
 
 public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, PipelineEvent> {
 
-    ch.ethz.infsec.policy.Interval interval;
     public Mformula formula;
-
+    ch.ethz.infsec.policy.Interval interval;
     HashMap<Long, HashSet<Assignment>> buckets;
     HashMap<Long, Long> timepointToTimestamp;
     HashMap<Long, Long> terminators;
@@ -57,11 +56,19 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
         }
 
         if (event.isPresent()) {
-
             if(!buckets.containsKey(event.getTimepoint())){
                 buckets.put(event.getTimepoint(), Table.one(event.get()));
             }else{
                 buckets.get(event.getTimepoint()).add(event.get());
+            }
+            Long tp = event.getTimepoint();
+            Long ts = event.getTimestamp();
+            for(Long term : terminators.keySet()){
+                if(IntervalCondition.mem2(ts - timepointToTimestamp.get(term) , interval)
+                        && tp >= term){ // make sure that only previous events are output
+                    PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
+                    out.collect(result);
+                }
             }
 
         } else {
@@ -70,36 +77,23 @@ public class MEventually implements Mformula, FlatMapFunction<PipelineEvent, Pip
             } else {
                 terminatorCount.put(event.getTimepoint(), terminatorCount.get(event.getTimepoint()) + 1);
             }
-            if (!terminators.containsKey(event.getTimepoint())) {
+            // only add terminator when received correct amount
+            if ((terminatorCount.get(event.getTimepoint()).equals(this.formula.getNumberProcessors()))) {
                 terminators.put(event.getTimepoint(), event.getTimestamp());
             }
-        }
-
-        if (event.isPresent()) {
-            Long tp = event.getTimepoint();
-            Long ts = event.getTimestamp();
-            for(Long term : terminators.keySet()){
-                if(IntervalCondition.mem2(ts - timepointToTimestamp.get(term) , interval)
-                    && tp >= term){ // make sure that only previous terminators are output
-                    PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(term), term, event.get());
-                    out.collect(result);
-                }
-            }
-        } else {
             Long termtp = event.getTimepoint();
             for(Long tp : buckets.keySet()){
                 if(IntervalCondition.mem2(timepointToTimestamp.get(tp) - timepointToTimestamp.get(termtp), interval)
-                    && tp >= termtp){ // make sure that only previous events are output
+                        && tp >= termtp){ // make sure that only previous events are output
                     HashSet<Assignment> satisfEvents = buckets.get(tp);
                     for(Assignment pe : satisfEvents){
                         PipelineEvent result = PipelineEvent.event(timepointToTimestamp.get(termtp), termtp, pe);
                         out.collect(result);
-                        // System.out.println("eventually result : " + result.toString());
                     }
                 }
             }
             while(terminators.containsKey(largestInOrderTP + 1L)
-                && terminatorCount.get(largestInOrderTP + 1L).equals(this.formula.getNumberProcessors())){
+                    && terminatorCount.get(largestInOrderTP + 1L).equals(this.formula.getNumberProcessors())){
                 largestInOrderTP++;
                 largestInOrderTS = terminators.get(largestInOrderTP);
                 // output terminator
