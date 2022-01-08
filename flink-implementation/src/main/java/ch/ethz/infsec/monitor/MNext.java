@@ -46,7 +46,6 @@ public class MNext implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
         return this.numberProcessors;
     }
 
-
     @Override
     public void flatMap(PipelineEvent event, Collector<PipelineEvent> out) throws Exception {
 
@@ -90,7 +89,6 @@ public class MNext implements Mformula, FlatMapFunction<PipelineEvent, PipelineE
             HashSet<PipelineEvent> eventsAtNext = A.get(event.getTimepoint() + 1);
             for (PipelineEvent buffAss : eventsAtNext){
                 if(IntervalCondition.mem2( buffAss.getTimestamp() - event.getTimestamp(), interval)){
-                    //assert(buffAss.getTimestamp() - event.getTimestamp() >= 0);
                     out.collect(PipelineEvent.event(event.getTimestamp(), event.getTimepoint(),  buffAss.get()));
                 }
             }

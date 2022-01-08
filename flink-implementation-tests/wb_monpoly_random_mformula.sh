@@ -1,23 +1,20 @@
 #!/bin/bash
 
-PROCESSORS=1
-
 WORKDIR=`cd "$(dirname "$BASH_SOURCE")/.."; pwd`
 JARPATH_BB="$WORKDIR/flink-monitor/target/flink-monitor-1.0-SNAPSHOT.jar"
 JARPATH_WB="$WORKDIR/flink-implementation/target/flink-implementation-1.0-SNAPSHOT.jar"
 MONPOLY_DIR="/Users/emmahedvigpindhansen/Desktop/BA/monpoly"
-DATADIR="$WORKDIR/evaluation/synthetic"
-#FORMULA="$DATADIR/random_mformula.mfotl"
-#SIGFILE="$DATADIR/random_mformula.sig"
-FORMULA="$DATADIR/star-neg.mfotl"
-SIGFILE="$DATADIR/synth.sig"
-TRACEFILE="$WORKDIR/trace.csv" ##change to random_trace when using random mformula
-LOGFILE="$WORKDIR/trace.log"
+DATADIR="$WORKDIR/flink-implementation-tests"
+FORMULA="$DATADIR/mformulas/random_mformula.mfotl"
+SIGFILE="$DATADIR/sigs/random_mformula.sig"
+TRACEFILE="$DATADIR/logs/trace.csv" ##change to random_trace when using random mformula
+LOGFILE="$DATADIR/logs/trace.log"
 FLINKDIR="/Users/emmahedvigpindhansen/Desktop/BA/flink"
 PORT=10105
 
 MFORMULA_SIZE=3
 MFORMULA_FREEVARS=2
+PROCESSORS=2
 
 fail() {
     echo "=== Test failed ==="

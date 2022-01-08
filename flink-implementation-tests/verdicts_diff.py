@@ -40,7 +40,6 @@ def verify_verdicts(collapse: bool, reference_path: str, verdict_path: str) -> b
                             tuples.append(tuple(params))
                     for tup in tuples:
                         verdicts.append((tp, ts) + tup)
-
         verdicts.sort()
         return list(set(verdicts)), unknown
 
