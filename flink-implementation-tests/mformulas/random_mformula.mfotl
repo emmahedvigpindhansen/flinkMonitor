@@ -1,1 +1,1 @@
-(NOT (x2 = 25)) SINCE(4,6) P0(x2,x1)
+(ONCE[2,*) (NEXT(5,14] (P0(x1,x2) OR P0(x1,x2))))

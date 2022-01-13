@@ -19,7 +19,7 @@ run_monpoly() {
 
 run_wb() {
   "$WORKDIR/replayer.sh" -i csv -f monpoly -a 0 -o localhost:"$PORT" "$1" &
-  scala "$JARPATH_WB" --in localhost:"$PORT" --sig "$SIGFILE" --formula "$MFORMULA_DIR/$formula.mfotl" --processors "$PROCESSORS" --out "$OUTPUT_DIR/flink-out" --job "monpoly-test"
+  scala "$JARPATH_WB" --in localhost:"$PORT" --sig "$SIGFILE" --formula "$MFORMULA_DIR/$formula.mfotl" --processors "$PROCESSORS" --out "$OUTPUT_DIR/flink-out" --format monpoly --job "monpoly-test"
   find "$OUTPUT_DIR/flink-out" -type f -exec cat \{\} + > "$OUTPUT_DIR/wb_$formula.txt"
 }
 

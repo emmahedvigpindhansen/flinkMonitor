@@ -57,7 +57,7 @@ public class Main {
     private static final String TERMINATOR_TAG = "0Terminator";
 
     public static Integer checkpointInterval = 1200000000;
-    public static String checkpointUri = "file:///home/valeriaj/checkpoints";
+    public static String checkpointUri = "";
     public static Integer restarts = 1;
 
     public static int numberProcessors = 1;
@@ -70,12 +70,11 @@ public class Main {
         int inputPortNumber = Integer.parseInt(inputSourceString[1]);
         String outputFile = p.get("out");
         String formulaFile = p.get("formula");
+        String inputFormat = p.get("format");
 
         numberProcessors = p.getInt("processors");
         String jobName = p.get("job");
 
-
-        // EH : does this read multiple policies or just 1??
         Either<String, GenFormula<VariableID>> a = Policy.read(Source.fromFile(formulaFile, Codec.fallbackSystemCodec()).mkString());
         if(a.isLeft()){
             throw new ExceptionInInitializerError();
@@ -97,7 +96,10 @@ public class Main {
                     .name("Socket source")
                     .uid("socket-source");
 
-            DataStream<Fact> facts = text.flatMap(new ParsingFunction(new MonpolyTraceParser()))
+            ch.ethz.infsec.trace.parser.TraceParser parser = inputFormat.equals("csv") ?
+                    new Crv2014CsvParser() : new MonpolyTraceParser();
+
+            DataStream<Fact> facts = text.flatMap(new ParsingFunction(parser))
                                          .setParallelism(1)
                                          .setMaxParallelism(1)
                                         .name("parser")
@@ -140,7 +142,6 @@ public class Main {
             DataStream<PipelineEvent> sink = mformula.accept(new MformulaVisitorFlink(hashmap, mainDataStream));
 
             DataStream<String> strOutput = sink.flatMap(new PrettyPrint(fvios)).map(PipelineEvent::toString);
-            // strOutput.addSink(StreamingFileSink.forRowFormat(new Path(outputFile),new SimpleStringEncoder<String>("UTF-8")).build()).setParallelism(1);
 
             strOutput.writeAsText(outputFile, FileSystem.WriteMode.OVERWRITE).setParallelism(1);
 

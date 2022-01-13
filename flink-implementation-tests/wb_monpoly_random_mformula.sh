@@ -23,7 +23,7 @@ fail() {
 
 echo "Generating formula..."
 
-#$MONPOLY_DIR/_build/install/default/bin/gen_fma -size $MFORMULA_SIZE -free_vars $MFORMULA_FREEVARS -output "$DATADIR/random_mformula"
+$MONPOLY_DIR/_build/install/default/bin/gen_fma -size $MFORMULA_SIZE -free_vars $MFORMULA_FREEVARS -output "$DATADIR/mformulas/random_mformula"
 
 cat $FORMULA
 
@@ -45,7 +45,7 @@ head "$WORKDIR/reference.txt" # check reference output not empty
 
 echo "Running white box monitor ..."
 "$WORKDIR/replayer.sh" -i csv -f monpoly -a 0 -o localhost:"$PORT" "$TRACEFILE" &
-scala "$JARPATH_WB" --in localhost:"$PORT" --sig "$SIGFILE" --formula "$FORMULA" --processors "$PROCESSORS" --out "$WORKDIR/flink-out" --job "monpoly-test"
+scala "$JARPATH_WB" --in localhost:"$PORT" --sig "$SIGFILE" --formula "$FORMULA" --processors "$PROCESSORS" --out "$WORKDIR/flink-out" --format monpoly --job "monpoly-test"
 if [[ $? != 0 ]]; then
     fail
 fi

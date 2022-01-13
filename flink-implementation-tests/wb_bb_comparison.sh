@@ -13,20 +13,17 @@ MFORMULA_DIR="$WORKDIR/flink-implementation-tests/mformulas"
 SIGFILE="$WORKDIR/flink-implementation-tests/sigs/synth.sig"
 MONPOLY_EXE="$MONPOLY_DIR/monpoly"
 
-# source "/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation-tests/config.sh"
-
 FORMULAS="linear-neg star-neg triangle-neg"
 NEGATE="" # if formulas above are suffixed with -neg this should be "", otherwise "-negate"
-EVENT_RATES="40000 45000 50000"#"25000 30000 35000"
-ACCELERATIONS="1"#"1 0"
-INDEX_RATES="1"
+EVENT_RATES="25000 30000 35000 40000 45000 50000"
+ACCELERATIONS="0 1"
 LOG_LENGTH=60
-REPETITIONS=1 #3
+REPETITIONS=3
 
 PROCESSORS_WB="1 2 3 4"
 PROCESSORS_BB="5 9 13 17"
 
-STREAM_PORT=10135
+STREAM_PORT=10102
 
 echo "=== Synthetic experiments (relation sizes) ==="
 
@@ -40,25 +37,24 @@ make_log() {
 }
 
 echo "Generating logs ..."
-#make_log -S star-neg
-#make_log -L linear-neg
-#make_log -T triangle-neg
+make_log -S star-neg
+make_log -L linear-neg
+make_log -T triangle-neg
 
+start_time=$(date +%Y%m%d_%H%M%S)
 
-#start_time=$(date +%Y%m%d_%H%M%S)
-
-#"$FLINK_11_BIN/start-cluster.sh" > /dev/null
+"$FLINK_11_BIN/start-cluster.sh" > /dev/null
 
 echo "Running white-box tests"
 for procs in $PROCESSORS_WB; do
-    echo "Evaluating no. processors $procs"
     for formula in $FORMULAS; do
-        echo "Evaluating $formula:"
         for er in $EVENT_RATES; do
-            echo "Event rate $er:"
             for acc in $ACCELERATIONS; do
-                echo "Acceleration $acc:"
                 for i in $(seq 1 $REPETITIONS); do
+                    echo "Evaluating no. processors $procs"
+                    echo "Evaluating $formula:"
+                    echo "Event rate $er:"
+                    echo "Acceleration $acc:"
                     echo "Repetition $i ..."
 
                     INPUT_FILE="$LOG_DIR/gen_${formula}_${er}.csv"
@@ -69,34 +65,32 @@ for procs in $PROCESSORS_WB; do
                         DELAY_REPORT="$REPORT_DIR/${JOB_NAME}_delay.txt"
                         JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
 
-                        "$WORKDIR/replayer.sh" -v -a 0 -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE"  2> "$DELAY_REPORT" &
+                        "$WORKDIR/replayer.sh" -v -a 0 -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" 2> "$DELAY_REPORT" &
                           (time /Users/emmahedvigpindhansen/Desktop/BA/flink-1.11.2/bin/flink run \
                           /Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation/target/flink-implementation-1.0-SNAPSHOT.jar \
-                           --in localhost:$STREAM_PORT --format csv \
+                           --in localhost:$STREAM_PORT --format monpoly \
                            --sig /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/synth.sig \
                            --formula /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/"$formula".mfotl \
                            --negate false --out flink-out --processors "$procs" --job "$JOB_NAME") 2> "$JOB_REPORT"
                     else
 
-                        JOB_NAME="gen_flink_wb_${procs}_${formula}_${i}_online"
+                        JOB_NAME="gen_flink_wb_${procs}_${formula}_${er}_${i}_online"
                         DELAY_REPORT="$REPORT_DIR/${JOB_NAME}_delay.txt"
                         JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
 
-                        "$WORKDIR/replayer.sh" -v -a 1 -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE"  & #2> "$DELAY_REPORT" &
+                        "$WORKDIR/replayer.sh" -v -a 1 -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" 2> "$DELAY_REPORT" &
                           (time /Users/emmahedvigpindhansen/Desktop/BA/flink-1.11.2/bin/flink run \
                           /Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation/target/flink-implementation-1.0-SNAPSHOT.jar \
-                           --in localhost:$STREAM_PORT --format csv \
+                           --in localhost:$STREAM_PORT --format monpoly \
                            --sig /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/synth.sig \
                            --formula /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/"$formula".mfotl \
-                           --negate false --out flink-out --processors "$procs" --job "$JOB_NAME") #2> "$JOB_REPORT"
+                           --negate false --out flink-out --processors "$procs" --job "$JOB_NAME") 2> "$JOB_REPORT"
                     fi
                 done
             done
         done
     done
 done
-
-exit
 
 "$FLINK_11_BIN/stop-cluster.sh" > /dev/null
 
@@ -105,10 +99,11 @@ exit
 echo "Running black-box tests"
 for procs in $PROCESSORS_BB; do
     for formula in $FORMULAS; do
-        echo "    Evaluating $formula:"
         for er in $EVENT_RATES; do
-            echo "      Event rate $er:"
             for i in $(seq 1 $REPETITIONS); do
+                echo "Evaluating no. processors $procs"
+                echo "Evaluating $formula:"
+                echo "Event rate $er:"
                 echo "Repetition $i ..."
 
                 INPUT_FILE="$LOG_DIR/gen_${formula}_${er}.csv"
