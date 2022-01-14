@@ -26,10 +26,6 @@ STREAM_PORT=10102
 
 echo "=== Synthetic experiments (relation sizes) ==="
 
-echo $WORKDIR
-
-exit
-
 make_log() {
     flag=$1
     formula=$2
@@ -47,7 +43,6 @@ make_log -T triangle-neg
 start_time=$(date +%Y%m%d_%H%M%S)
 
 "$FLINK_11_BIN/start-cluster.sh" > /dev/null
-
 
 echo "Running white-box tests"
 for procs in $PROCESSORS_WB; do
