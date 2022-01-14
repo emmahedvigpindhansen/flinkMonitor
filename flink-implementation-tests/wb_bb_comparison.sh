@@ -6,12 +6,11 @@ FLINK_7_BIN="/Users/emmahedvigpindhansen/Desktop/BA/flink-1.7.2/bin"
 JARPATH_BB="$WORKDIR/flink-monitor/target/flink-monitor-1.0-SNAPSHOT.jar"
 JARPATH_WB="$WORKDIR/flink-implementation/target/flink-implementation-1.0-SNAPSHOT.jar"
 MONPOLY_DIR="/Users/emmahedvigpindhansen/Desktop/BA/monpoly"
-LOG_DIR="/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation-tests/logs"
-REPORT_DIR="/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation-tests/reports"
-OUTPUT_DIR="/Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation-tests/output"
+LOG_DIR="$WORKDIR/flink-implementation-tests/logs"
+REPORT_DIR="$WORKDIR/flink-implementation-tests/reports"
+OUTPUT_DIR="$WORKDIR/flink-implementation-tests/output"
 MFORMULA_DIR="$WORKDIR/flink-implementation-tests/mformulas"
 SIGFILE="$WORKDIR/flink-implementation-tests/sigs/synth.sig"
-MONPOLY_EXE="$MONPOLY_DIR/monpoly"
 
 FORMULAS="linear-neg star-neg triangle-neg"
 NEGATE="" # if formulas above are suffixed with -neg this should be "", otherwise "-negate"
@@ -26,6 +25,10 @@ PROCESSORS_BB="5 9 13 17"
 STREAM_PORT=10102
 
 echo "=== Synthetic experiments (relation sizes) ==="
+
+echo $WORKDIR
+
+exit
 
 make_log() {
     flag=$1
@@ -44,6 +47,7 @@ make_log -T triangle-neg
 start_time=$(date +%Y%m%d_%H%M%S)
 
 "$FLINK_11_BIN/start-cluster.sh" > /dev/null
+
 
 echo "Running white-box tests"
 for procs in $PROCESSORS_WB; do
@@ -66,11 +70,8 @@ for procs in $PROCESSORS_WB; do
                         JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
 
                         "$WORKDIR/replayer.sh" -v -a 0 -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" 2> "$DELAY_REPORT" &
-                          (time /Users/emmahedvigpindhansen/Desktop/BA/flink-1.11.2/bin/flink run \
-                          /Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation/target/flink-implementation-1.0-SNAPSHOT.jar \
-                           --in localhost:$STREAM_PORT --format monpoly \
-                           --sig /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/synth.sig \
-                           --formula /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/"$formula".mfotl \
+                          (time $FLINK_11_BIN/flink run $JARPATH_WB --in localhost:$STREAM_PORT --format monpoly \
+                           --sig $SIGFILE --formula $MFORMULA_DIR/"$formula".mfotl \
                            --negate false --out flink-out --processors "$procs" --job "$JOB_NAME") 2> "$JOB_REPORT"
                     else
 
@@ -79,11 +80,8 @@ for procs in $PROCESSORS_WB; do
                         JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
 
                         "$WORKDIR/replayer.sh" -v -a 1 -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" 2> "$DELAY_REPORT" &
-                          (time /Users/emmahedvigpindhansen/Desktop/BA/flink-1.11.2/bin/flink run \
-                          /Users/emmahedvigpindhansen/Desktop/BA/my_project/flinkMonitor/flink-implementation/target/flink-implementation-1.0-SNAPSHOT.jar \
-                           --in localhost:$STREAM_PORT --format monpoly \
-                           --sig /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/synth.sig \
-                           --formula /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/"$formula".mfotl \
+                          (time $FLINK_11_BIN/flink run $JARPATH_WB --in localhost:$STREAM_PORT --format monpoly \
+                           --sig $SIGFILE --formula $MFORMULA_DIR/"$formula".mfotl \
                            --negate false --out flink-out --processors "$procs" --job "$JOB_NAME") 2> "$JOB_REPORT"
                     fi
                 done
@@ -112,12 +110,9 @@ for procs in $PROCESSORS_BB; do
                 DELAY_REPORT="$REPORT_DIR/${JOB_NAME}_delay.txt"
                 JOB_REPORT="$REPORT_DIR/${JOB_NAME}_job.txt"
 
-                "$WORKDIR/replayer.sh" -v -a "$acc" -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" 2> "$DELAY_REPORT" &
-                (time /Users/emmahedvigpindhansen/Desktop/BA/flink-1.7.2/bin/flink run \
-                   /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/flink-monitor/target/flink-monitor-1.0-SNAPSHOT.jar \
-                   --skipreorder true --in localhost:$STREAM_PORT --format monpoly \
-                   --sig /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/synth.sig \
-                   --formula /Users/emmahedvigpindhansen/Desktop/BA/scalable-online-monitor/evaluation/synthetic/"$formula".mfotl \
+                "$WORKDIR/replayer.sh" -v -a 1 -i csv -f monpoly -t 1000 -o localhost:$STREAM_PORT "$INPUT_FILE" 2> "$DELAY_REPORT" &
+                (time $FLINK_7_BIN/flink run $JARPATH_BB --skipreorder true --in localhost:$STREAM_PORT --format monpoly \
+                   --sig $SIGFILE --formula $MFORMULA_DIR/"$formula".mfotl \
                    --negate false --out flink-out --processors "$procs") 2> "$JOB_REPORT"
             done
         done

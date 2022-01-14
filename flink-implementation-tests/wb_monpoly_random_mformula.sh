@@ -9,7 +9,6 @@ FORMULA="$DATADIR/mformulas/random_mformula.mfotl"
 SIGFILE="$DATADIR/sigs/random_mformula.sig"
 TRACEFILE="$DATADIR/logs/trace.csv" ##change to random_trace when using random mformula
 LOGFILE="$DATADIR/logs/trace.log"
-FLINKDIR="/Users/emmahedvigpindhansen/Desktop/BA/flink"
 PORT=10105
 
 MFORMULA_SIZE=3
@@ -45,7 +44,8 @@ head "$WORKDIR/reference.txt" # check reference output not empty
 
 echo "Running white box monitor ..."
 "$WORKDIR/replayer.sh" -i csv -f monpoly -a 0 -o localhost:"$PORT" "$TRACEFILE" &
-scala "$JARPATH_WB" --in localhost:"$PORT" --sig "$SIGFILE" --formula "$FORMULA" --processors "$PROCESSORS" --out "$WORKDIR/flink-out" --format monpoly --job "monpoly-test"
+scala "$JARPATH_WB" --in localhost:"$PORT" --sig "$SIGFILE" --formula "$FORMULA" \
+    --processors "$PROCESSORS" --out "$WORKDIR/flink-out" --format monpoly --job "monpoly-test"
 if [[ $? != 0 ]]; then
     fail
 fi
